@@ -1,9 +1,13 @@
 /**
-* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community Edition) available.
+* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
+* Edition) available.
 * Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
-* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
 * http://opensource.org/licenses/MIT
-* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+* an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+* specific language governing permissions and limitations under the License.
 */
 <template>
 <div id="app">
@@ -12,7 +16,7 @@
         :appmakerDataLoading="appmakerDataLoading"/>
     <UserLoginModal ref="userLogin"></UserLoginModal>
     <ErrorCodeModal ref="errorModal"></ErrorCodeModal>
-    <router-view></router-view>
+    <router-view v-if="isRouterAlive"></router-view>
 </div>
 </template>
 <script>
@@ -32,8 +36,14 @@ export default {
         UserLoginModal,
         ErrorCodeModal
     },
+    provide () {
+        return {
+            reload: this.reload
+        }
+    },
     data () {
         return {
+            isRouterAlive: true,
             appmakerDataLoading: false // 轻应用加载 app 详情
         }
     },
@@ -46,7 +56,7 @@ export default {
     },
     created () {
         /**
-         * 兼容原子配置项里，异步请求用到的全局弹窗提示
+         * 兼容标准插件配置项里，异步请求用到的全局弹窗提示
          */
         window.show_msg = (message, type) => {
             this.$bkMessage({
@@ -54,7 +64,7 @@ export default {
                 theme: type
             })
         }
-        
+
         if (this.viewMode === 'appmaker') {
             this.getAppmakerDetail()
         }
@@ -63,8 +73,8 @@ export default {
         bus.$on('showLoginModal', (src) => {
             this.$refs.userLogin.show(src)
         })
-        bus.$on('showErrorModal', (type) => {
-            this.$refs.errorModal.show(type)
+        bus.$on('showErrorModal', (type, responseText) => {
+            this.$refs.errorModal.show(type, responseText)
         })
         bus.$on('showMessage', (info) => {
             this.$bkMessage({
@@ -90,6 +100,12 @@ export default {
             } finally {
                 this.appmakerDataLoading = false
             }
+        },
+        reload () {
+            this.isRouterAlive = false
+            this.$nextTick(() => {
+                this.isRouterAlive = true
+            })
         }
     }
 }

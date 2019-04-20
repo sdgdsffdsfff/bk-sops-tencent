@@ -1,9 +1,13 @@
 /**
-* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community Edition) available.
+* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
+* Edition) available.
 * Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
-* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
 * http://opensource.org/licenses/MIT
-* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+* an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+* specific language governing permissions and limitations under the License.
 */
 <template>
      <bk-dialog
@@ -52,7 +56,7 @@
                         @item-selected="onSelectScheme">
                     </bk-selector>
                     <i
-                        class="common-icon-warning scheme-tooltip"
+                        class="bk-icon icon-info-circle scheme-tooltip"
                         v-bktooltips="{
                            content: i18n.schemeTips,
                            placements: ['left'],
@@ -96,9 +100,10 @@
      </bk-dialog>
 </template>
 <script>
+import '@/utils/i18n.js'
 import { mapActions } from 'vuex'
 import { Validator } from 'vee-validate'
-import { NAME_REG } from '@/constants/index.js'
+import { NAME_REG, STRING_LENGTH } from '@/constants/index.js'
 import { errorHandler } from '@/utils/errorHandler.js'
 import BaseInput from '@/components/common/base/BaseInput.vue'
 export default {
@@ -116,7 +121,7 @@ export default {
             appTemplateEmpty: false,
             appData: {
                 appTemplate: this.currentAppData ? Number(this.currentAppData.template_id) : '',
-                appName: this.currentAppData ? this.currentAppData.template_name : '',
+                appName: this.currentAppData ? this.currentAppData.name : '',
                 appScheme: this.currentAppData ? Number(this.currentAppData.template_scheme_id) : '',
                 appDesc: this.currentAppData ? this.currentAppData.desc : '',
                 appLogo: undefined
@@ -129,11 +134,11 @@ export default {
             },
             appNameRule: {
                 required: true,
-                max: 20,
+                max: STRING_LENGTH.APP_NAME_MAX_LENGTH,
                 regex: NAME_REG
             },
             appDescRule: {
-                max: 30
+                max: STRING_LENGTH.APP_DESCRIPTION_MAX_LENGTH
             },
             i18n: {
                 title: this.isCreateNewApp ? gettext('新建轻应用') : gettext('修改轻应用'),
@@ -145,7 +150,7 @@ export default {
                 appDesc: gettext('应用简介'),
                 appLogo: gettext('应用LOGO'),
                 change: gettext('点击更换'),
-                uploadTips: gettext('只能上传jpg/png文件，且不超过 100K')
+                uploadTips: gettext('只能上传JPG/PNG类型文件，建议大小为100px*100px，不能超过 100K')
             }
         }
     },
@@ -206,7 +211,7 @@ export default {
             const pic = e.target.files[0]
             const size = pic.size
             if (size > 1024000) {
-                e.target.files = []
+                e.target.value = ''
                 this.appData.appLogo = []
                 this.$bkMessage({
                     message: gettext('图片大小不能超过 100K'),
@@ -224,6 +229,7 @@ export default {
                 this.appTemplateEmpty = true
                 return
             }
+            this.appData.appName = this.appData.appName.trim()
             this.$validator.validateAll().then((result) => {
                 if (!result) return
                 this.$emit('onEditConfirm', this.appData)
@@ -240,12 +246,15 @@ export default {
 .app-edit-content {
     .common-form-content {
         position: relative;
-        margin-right: 20px;
+        margin-right: 30px;
     }
     .scheme-tooltip {
         position: absolute;
         right: -20px;
         top: 10px;
+        &:hover {
+            color: #f4aa1a;
+        }
     }
     .app-desc {
         width: 100%;

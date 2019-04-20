@@ -1,19 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community Edition) available.
+Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
+Edition) available.
 Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
-Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
-""" # noqa
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+"""
+
+import logging
 from abc import abstractmethod
-from django.db.utils import ProgrammingError
 
 from pipeline import exceptions
 from pipeline.core.data import library
 from pipeline.core.data.context import OutputRef
 from pipeline.core.data.expression import ConstantTemplate, format_constant_key
-from pipeline.models import VariableModel
+from pipeline.core.signals import pre_variable_register
+
+logger = logging.getLogger('root')
 
 
 class Variable(object):
@@ -35,6 +42,15 @@ class PlainVariable(Variable):
     def get(self):
         return self.value
 
+    def __repr__(self):
+        return '[plain_var] {}'.format(self.name)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __unicode__(self):
+        return self.__repr__()
+
 
 class SpliceVariable(Variable):
 
@@ -45,7 +61,11 @@ class SpliceVariable(Variable):
 
     def get(self):
         if not self._value:
-            self._resolve()
+            try:
+                self._resolve()
+            except exceptions as e:
+                logger.error(u"get value[%s] of Variable[%s] error[%s]" % (self.value, self.name, e))
+                return self.value
         return self._value
 
     def _build_reference(self, context):
@@ -69,6 +89,15 @@ class SpliceVariable(Variable):
 
         self._value = val
 
+    def __repr__(self):
+        return '[splice_var] {}'.format(self.name)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __unicode__(self):
+        return self.__repr__()
+
 
 class LazyVariableMeta(type):
     def __new__(cls, name, bases, attrs):
@@ -87,17 +116,7 @@ class LazyVariableMeta(type):
             raise exceptions.ConstantReferenceException("LazyVariable %s: code can't be empty."
                                                         % new_class.__name__)
 
-        try:
-            obj, created = VariableModel.objects.get_or_create(code=new_class.code,
-                                                           defaults={
-                                                               'status': __debug__,
-                                                           })
-            if not created and not obj.status:
-                obj.status = True
-                obj.save()
-        except ProgrammingError:
-            # first migrate
-            pass
+        pre_variable_register.send(sender=LazyVariable, variable_cls=new_class, variable_code=new_class.code)
 
         library.VariableLibrary.variables[new_class.code] = new_class
 
@@ -115,7 +134,11 @@ class LazyVariable(SpliceVariable):
     # variable reference resolve
     def get(self):
         self.value = super(LazyVariable, self).get()
-        return self.get_value()
+        try:
+            return self.get_value()
+        except exceptions as e:
+            logger.error(u"get value[%s] of Variable[%s] error[%s]" % (self.value, self.name, e))
+            return self.value
 
     # get real value by user code
     @abstractmethod

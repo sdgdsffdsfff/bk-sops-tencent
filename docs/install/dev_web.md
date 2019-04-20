@@ -22,11 +22,13 @@ npm run dev
 前端开发完成后，正式发布前需要先打包。还是在 pipeline/blueflow/ 目录下，执行如下命令打包，会自动在当前目录下生成 static/dist/ 目录，即打包好的前端资源。 
 
 ```bash
-npm run build
+npm run build -- --SITE_URL="/o/bk_sops" --STATIC_ENV="open/prod"
 ```
 
 ## 收集静态资源  
-前端打包后，需要在工程目录下运行如下命令自动收集静态资源到 static 下。
+前端打包后，需要在工程目录下运行如下命令收集静态资源到 static 下。
 ```bash
-python manage.py collectstatic --noinput
+rm -rf static/open static/images
+mv pipeline/blueflow/static/open static/
+mv pipeline/blueflow/static/images static/
 ```

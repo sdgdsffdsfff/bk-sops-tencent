@@ -1,9 +1,13 @@
 /**
-* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community Edition) available.
+* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
+* Edition) available.
 * Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
-* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
 * http://opensource.org/licenses/MIT
-* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+* an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+* specific language governing permissions and limitations under the License.
 */
 import Vue from 'vue'
 import Vuex from 'vuex'
@@ -39,16 +43,16 @@ const store = new Vuex.Store({
         app_id: window.APP_ID, // 轻应用 id
         view_mode: window.VIEW_MODE,
         cc_id: window.BIZ_CC_ID,
-        run_ver: window.RUN_VER,
         lang: getAppLang(),
         bizList: [],
         templateId: '', // 轻应用页面全局 template_id
         notFoundPage: false,
-        firstEnterApp: true,  // hack spa page goto Django page
         categorys: [],
         components: [],
         isSuperUser: window.IS_SUPERUSER === 1,
-        v1_import_flag: window.IMPORT_V1_FLAG
+        v1_import_flag: window.IMPORT_V1_FLAG,
+        rsa_pub_key: window.RSA_PUB_KEY,
+        businessTimezone: window.BUSINESS_TIMEZONE
     },
     mutations: {
         setAppId (state, id) {
@@ -69,14 +73,14 @@ const store = new Vuex.Store({
         setNotFoundPage (state, val) {
             state.notFoundPage = val
         },
-        markFirstEnter (state) {
-            state.firstEnterApp = false
-        },
         setCategorys (state,data) {
             state.categorys = data
         },
         setSingleAtomList (state,data) {
             state.components = data
+        },
+        setBusinessTimezone (state, data) {
+            state.businessTimezone = data
         }
     },
     actions: {
@@ -85,8 +89,8 @@ const store = new Vuex.Store({
                 commit('setBizList', response.data.objects)
             })
         },
-        changeDefaultBiz () {
-            return api.changeDefaultBiz().then(response => response.data)
+        changeDefaultBiz ({commit}, ccId) {
+            return api.changeDefaultBiz(ccId).then(response => response.data)
         },
         getCategorys ({commit}) {
             api.getCategorys().then(response => {
@@ -97,6 +101,26 @@ const store = new Vuex.Store({
             api.getSingleAtomList().then(response => {
                 commit('setSingleAtomList', response.data.objects)
             })
+        },
+        getBusinessTimezone ({commit}) {
+            api.getBusinessTimezone().then(response => {
+                const data = response.data
+                if (data.time_zone === undefined) {
+                    commit('setBusinessTimezone', undefined)
+                } else {
+                    commit('setBusinessTimezone', data.time_zone)
+                }
+                
+            })
+        },
+        getHostInCC ({commmit}, fields) {
+            return api.loadHostInCC(fields).then(response => response.data)
+        },
+        getTopoTreeInCC ({commmit}) {
+            return api.loadTopoTreeInCC().then(response => response.data)
+        },
+        getTopoModelInCC ({commit}) {
+            return api.loadTopoModelInCC().then(response => response.data)
         }
     },
     getters: {},

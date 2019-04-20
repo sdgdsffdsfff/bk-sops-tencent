@@ -1,9 +1,13 @@
 /**
-* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community Edition) available.
+* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
+* Edition) available.
 * Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
-* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
 * http://opensource.org/licenses/MIT
-* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+* an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+* specific language governing permissions and limitations under the License.
 */
 <template>
     <div class="modify-time-container" v-bkloading="{isLoading: loading, opacity: 1}">
@@ -14,10 +18,9 @@
             <RenderForm
                 ref="renderForm"
                 v-if="!isEmptyParams"
-                :config="renderConfig"
-                :option="renderOption"
-                :data="renderData"
-                @dataChange="onInputDataChange">
+                :scheme="renderConfig"
+                :formOption="renderOption"
+                v-model="renderData">
             </RenderForm>
             <NoData v-else></NoData>
         </div>
@@ -57,10 +60,7 @@ export default {
                 showHook: false
             },
             renderConfig: [],
-            renderData: {
-                hook: {},
-                value: {}
-            }
+            renderData: {}
         }
     },
     computed: {
@@ -68,7 +68,7 @@ export default {
             'atomFormConfig': state => state.atomForm.config
         }),
         isEmptyParams () {
-            return Object.keys(this.renderData.value).length === 0
+            return Object.keys(this.renderData).length === 0
         }
     },
     mounted () {
@@ -93,7 +93,7 @@ export default {
                 this.nodeInfo = nodeDetailRes.data
                 if (nodeDetailRes.result) {
                     for ( let key in this.nodeInfo.inputs) {
-                        this.$set(this.renderData.value, key, this.nodeInfo.inputs[key])
+                        this.$set(this.renderData, key, this.nodeInfo.inputs[key])
                     }
                 } else {
                     errorHandler(nodeDetailRes, this)
@@ -117,14 +117,6 @@ export default {
                 }
             }
         },
-        onInputDataChange (val, tagCode,) {
-            let value = this.renderData.value[tagCode]
-            if (checkDataType(value) === 'Object') {
-                this.$set(value, tagCode, val)
-            } else {
-                this.$set(this.renderData.value, tagCode, val)
-            }
-        },
         async onModifyTime () {
             let formvalid = true
             if (this.$refs.renderForm) {
@@ -137,7 +129,7 @@ export default {
                 instance_id,
                 node_id,
                 component_code,
-                inputs: JSON.stringify(this.renderData.value)
+                inputs: JSON.stringify(this.renderData)
             }
             this.retrying = true
             try {
@@ -158,7 +150,8 @@ export default {
             }
         },
         onCancelRetry () {
-            this.$emit('modifyTimeCancel')
+            const  { node_id } = this.nodeDetailConfig
+            this.$emit('modifyTimeCancel', node_id)
         }
     }
 }

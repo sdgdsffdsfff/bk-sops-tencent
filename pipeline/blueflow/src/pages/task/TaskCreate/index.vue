@@ -1,9 +1,13 @@
 /**
-* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community Edition) available.
+* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
+* Edition) available.
 * Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
-* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
 * http://opensource.org/licenses/MIT
-* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+* an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+* specific language governing permissions and limitations under the License.
 */
 <template>
     <div :class="{
@@ -19,9 +23,13 @@
             :is="currentComponent"
             :currentStep="currentStep"
             :cc_id="cc_id"
+            :common="common"
             :template_id="template_id"
             :excludeNode="excludeNode"
+            :previewData="previewData"
             @setFunctionalStep="setFunctionalStep"
+            @setPeriodicStep="setPeriodicStep"
+            @setPreviewData="setPreviewData"
             @setExcludeNode="setExcludeNode">
         </component>
     </div>
@@ -32,6 +40,8 @@ import { mapState, mapMutations, mapActions } from 'vuex'
 import TaskStep from '../TaskStep.vue'
 import TaskSelectNode from './TaskSelectNode.vue'
 import TaskParamFill from './TaskParamFill.vue'
+import tools from '@/utils/tools.js'
+
 const STEP_DICT = [
     {
         step: 'selectnode',
@@ -55,12 +65,14 @@ export default {
         TaskSelectNode,
         TaskParamFill
     },
-    props: ['template_id', 'cc_id', 'step'],
+    props: ['template_id', 'cc_id', 'step' ,'common'],
     data () {
         return {
-            stepList: STEP_DICT,
-            excludeNode: [],
-            hasFunctionalStep: false
+            stepList: STEP_DICT.slice(),
+            hasFunctionalStep: false,
+            hasPeriodicTask: false,
+            previewData: [],
+            excludeNode: []
         }
     },
     computed: {
@@ -92,6 +104,31 @@ export default {
                     this.stepList.splice(stepIndex, 1)
                 }
             }
+        },
+        hasPeriodicTask (val) {
+            if (!val) {
+                this.stepList.push({
+                    step: 'taskexecute',
+                    name: gettext('任务执行')
+                })
+            } else if (!val.periodicType) {
+                this.deletePeriodicCurrentStep()
+            } else if (val.periodicType && val.functionalType) {
+                this.stepList.splice(2, 0, {
+                    step: 'functionalization',
+                    name: gettext('职能化认领'),
+                    component: 'TaskParamFill'
+                })
+                this.stepList.push({
+                    step: 'taskexecute',
+                    name: gettext('任务执行')
+                })
+            } else {
+                this.stepList.push({
+                    step: 'taskexecute',
+                    name: gettext('任务执行')
+                })
+            }
         }
     },
     mounted () {
@@ -110,6 +147,17 @@ export default {
         setFunctionalStep (isSelectFunctionalType) {
             this.hasFunctionalStep = isSelectFunctionalType
         },
+        setPeriodicStep (isSelectPeriodicType) {
+            this.hasPeriodicTask = isSelectPeriodicType
+        },
+        deletePeriodicCurrentStep () {
+            while (this.stepList.length !== 2) {
+                this.stepList.pop()
+            }
+        },
+        setPreviewData (previewData) {
+            this.previewData = tools.deepClone(previewData)
+        },
         setExcludeNode (excludeNode) {
             this.excludeNode = excludeNode
         }
@@ -118,15 +166,14 @@ export default {
 </script>
 <style lang="scss" scoped>
     .task-create-container {
-        min-width: 1200px;
+       min-width: 1320px;
         &.fill-height {
-            height: calc(100% - 60px);
+            height: calc(100% - 50px);
         }
         /deep/ .action-wrapper {
-            height: 90px;
-            line-height: 90px;
-            text-align: center;
+            height: 72px;
+            line-height: 72px;
+            text-align: left;
         }
     }
-
 </style>

@@ -1,21 +1,26 @@
 /**
-* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community Edition) available.
+* Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
+* Edition) available.
 * Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
-* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+* Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
 * http://opensource.org/licenses/MIT
-* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+* an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+* specific language governing permissions and limitations under the License.
 */
 <!--封装的分页 table-->
 <template>
-  <div class="table">
+  <div class="table" v-bkloading="{isLoading: loading, opacity: 1}">
     <el-table
     id="DataTablePagination"
-    v-loading.DataTablePagination="options.loading"
+    ref="mutipleTable"
     :data="data"
     :max-height="height"
     :stripe="options.stripe"
-    ref="mutipleTable"
     :border="options.border"
+    :empty-text="i18n.emptyNoData"
+    @sort-change="handleSortChange"
     @selection-change="handleSelectionChange">
       <!--选择框-->
       <el-table-column v-if="options.mutiSelect" type="selection" style="width: 55px;" >
@@ -23,12 +28,16 @@
       <!--选择框end-->
       <!--数据列-->
       <template v-for="(column, index) in columns">
-        <el-table-column :key="index"  :prop="column.prop" :filters="column.filters" :filter-method="column.handleFilter" :label="column.label" :align="column.align" :width="column.width" :sortable="column.sortable">
+        <el-table-column :key="index"  :prop="column.prop" :filters="column.filters" :filter-method="column.handleFilter" :label="column.label" :align="column.align" :width="column.width" :sortable="column.sortable" :min-width="column.minWidth">
           <template slot-scope="scope">
             <template v-if="!column.render">
-              <template v-if="column.formatter">
+                <template v-if="column.router">
+                <router-link class="column-name" :to="column.router(scope.row, column)" v-html="column.formatter(scope.row, column)" :title="scope.row.templateName || scope.row.instanceName"></router-link>
+              </template>
+              <template v-else-if="column.formatter">
                 <span v-html="column.formatter(scope.row, column)"></span>
               </template>
+              
               <template v-else>
                 <span>{{scope.row[column.prop]}}</span>
               </template>
@@ -162,6 +171,12 @@ export default {
                     border: true
                 }
             }
+        },
+        loading: {
+            type: Boolean,
+            default () {
+                return false
+            }
         }
     },
     components: {
@@ -189,7 +204,8 @@ export default {
     data () {
         return {
             i18n: {
-                operate: gettext("操作")
+                operate: gettext('操作'),
+                emptyNoData: gettext('无数据')
             },
             // 当前页
             pageIndex: 1,
@@ -200,8 +216,6 @@ export default {
             // 多行选中
             multipleSelection: []
         }
-    },
-    created () {
     },
     mounted () {
         // 判断是否需要分页，传递了pagination 参数 但是没有 pageArray 参数
@@ -256,6 +270,9 @@ export default {
             // 将选择的 val 加入至 multipleSelection 中
             this.multipleSelection = val
             this.$emit('handleSelectionChange', val)
+        },
+        handleSortChange (column, prop, order) {
+            this.$emit('handleSortChange', [column, prop, order])
         },
         // 显示 筛选弹窗
         handleFilter () {
@@ -319,7 +336,6 @@ export default {
       z-index: 1005;
       writing-mode: vertical-rl;
       text-align: center;
-    //   line-height: 28px;
       border-bottom-left-radius: 6px;
       border-top-left-radius: 6px;
       cursor: pointer;
@@ -330,5 +346,14 @@ export default {
         padding: 0 11px;
         font-size: 12px;
     }
-  }
+}
+.column-name {
+    color: #3a84ff !important;
+}
+.el-pagination button, .el-pagination span:not([class*=suffix]) {
+    vertical-align: unset;
+}
+.el-pager, .el-pager li{
+    vertical-align: unset;
+}
 </style>
