@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -29,6 +29,12 @@ mock.MagicMock.__reduce__ = __reduce__
 
 class Object(object):
     pass
+
+
+class MockResponse(object):
+    def __init__(self, **kwargs):
+        self.content = kwargs.get('content')
+        self.ok = kwargs.get('ok', True)
 
 
 class ContextObject(object):
@@ -60,6 +66,15 @@ class EndEventObject(IdentifyObject):
     def __init__(self, id=None):
         self.pipeline_finish = mock.MagicMock()
         super(EndEventObject, self).__init__(id=id)
+
+
+class ExecutableEndEventObject(IdentifyObject):
+    def __init__(self, id=None):
+        self.pipeline_finish = mock.MagicMock()
+        self.execute = mock.MagicMock()
+        self.data = mock.MagicMock()
+        self.data.outputs = mock.MagicMock()
+        super(ExecutableEndEventObject, self).__init__(id=id)
 
 
 class PipelineSpecObject(object):
@@ -196,6 +211,7 @@ class MockPipelineProcess(IdentifyObject):
         self.can_be_waked = mock.MagicMock(return_value=kwargs.get('can_be_waked', False))
         self.subproc_sleep_check = mock.MagicMock(return_value=kwargs.get('subproc_sleep_check_return',
                                                                           (False, [self.id])))
+        self.in_subprocess = mock.MagicMock(return_value=kwargs.get('in_subprocess_return', False))
 
     def pop_pipeline(self):
         return self.pipeline_stack.pop()
@@ -348,3 +364,11 @@ class MockExclusiveGateway(object):
 class MockConvergeGateway(object):
     def __init__(self, **kwargs):
         self.next = mock.MagicMock(return_value=kwargs.get('next', IdentifyObject()))
+
+
+class MockParser(object):
+    def __init__(self, parse_return='pipeline'):
+        self.parse_return = parse_return
+
+    def parse(self):
+        return self.parse_return

@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -13,12 +13,12 @@ specific language governing permissions and limitations under the License.
 
 import calendar
 import datetime
-import json
 import re
 import logging
 import time
 import pytz
 
+import ujson as json
 from django.core.cache import cache
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
@@ -42,7 +42,7 @@ from gcloud.core.api_adapter import (
 )
 
 logger = logging.getLogger("root")
-
+get_client_by_user = settings.ESB_GET_CLIENT_BY_USER
 CACHE_PREFIX = __name__.replace('.', '_')
 DEFAULT_CACHE_TIME_FOR_CC = settings.DEFAULT_CACHE_TIME_FOR_CC
 
@@ -60,7 +60,7 @@ def _get_user_business_list(request, use_cache=True):
 
     if not (use_cache and data):
         user_info = _get_user_info(request)
-        client = settings.ESB_GET_CLIENT_BY_USER(request.user.username)
+        client = get_client_by_user(request.user.username)
         result = client.cc.search_business({
             'bk_supplier_account': user_info['bk_supplier_account'],
             'condition': {
@@ -137,14 +137,17 @@ def _get_business_info(request, app_id, use_cache=True, use_maintainer=False):
         if use_maintainer:
             client = get_client_by_user_and_biz_id(username, app_id)
         else:
-            client = settings.ESB_GET_CLIENT_BY_REQUEST(request)
+            client = get_client_by_user(request.user.username)
         result = client.cc.search_business({
             'bk_supplier_account': business.cc_owner,
             'condition': {
                 'bk_biz_id': int(app_id)
             }
         })
+
         if result['result']:
+            if not result['data']['info']:
+                raise exceptions.Forbidden()
             data = result['data']['info'][0]
         elif result.get('code') in ('20101', 20101):
             raise exceptions.Unauthorized(result['message'])
@@ -184,74 +187,73 @@ def add_maintainer_to_biz(user, business_list):
         user.groups.add(group)
 
 
-def update_relationships(request, obj, extras, created=False, use_cache=True):
+def update_relationships(request, biz, extras, created=False, use_cache=True):
     """
     Update business-group(role) relationships & group-user memberships
     """
-    cache_key = "%s_update_relationships_%s" % (CACHE_PREFIX, obj.cc_id)
+    cache_key = "%s_update_relationships_%s" % (CACHE_PREFIX, biz.cc_id)
     data = cache.get(cache_key)
 
     if not (use_cache and data):
         groups = {}
         # first, create related groups if not exist
         for role in roles.ALL_ROLES:
-            group_name = convert_group_name(obj.cc_id, role)
-            group, group_created = Group.objects.get_or_create(name=group_name)  # TODO
+            group_name = convert_group_name(biz.cc_id, role)
+            group, group_created = Group.objects.get_or_create(name=group_name)
             groups[group_name] = (group, group_created)
 
             if group_created:
                 # assign view business perm for all roles
-                assign_perm('view_business', group, obj)
+                assign_perm('view_business', group, biz)
 
                 # assign manage business perm only for admin roles
                 if role in roles.ADMIN_ROLES:
-                    assign_perm('manage_business', group, obj)
+                    assign_perm('manage_business', group, biz)
+
+        functors = get_operate_user_list(request)
+        auditors = get_auditor_user_list(request)
+        user_model = get_user_model()
 
         with transaction.atomic():
             try:
-                Business.objects.select_for_update().get(pk=obj.pk)
+                Business.objects.select_for_update().get(pk=biz.pk)
             except Business.DoesNotExist:
                 return None
 
-            data = cache.get(cache_key)
+            if not created:
+                biz.groups.clear()
 
-            if not (use_cache and data):
-                # If not created, clear business to group memberships
-                if not created:
-                    obj.groups.clear()
+            for group_name in groups:
+                group, group_created = groups[group_name]
+                # If not created, clear group to user memberships
+                if not group_created:
+                    group.user_set.clear()
 
-                for group_name in groups:
-                    group, created = groups[group_name]
-                    # If not created, clear group to user memberships
-                    if not created:
-                        group.user_set.clear()
+                BusinessGroupMembership.objects.get_or_create(
+                    business=biz,
+                    group=group
+                )
 
-                    BusinessGroupMembership.objects.get_or_create(
-                        business=obj,
-                        group=group
-                    )
+                role = group_name.split('\x00')[1]
+                resp_data_role = '{}'.format(roles.CC_V2_ROLE_MAP.get(role, role))
+                role_users = extras.get(resp_data_role) or ''
+                user_list = role_users.split(',')
 
-                    role = group_name.split('\x00')[1]
-                    resp_data_role = '{}'.format(roles.CC_V2_ROLE_MAP.get(role, role))
-                    role_users = extras.get(resp_data_role) or ''
-                    user_model = get_user_model()
-                    user_list = role_users.split(',')
+                # 职能化人员单独授权
+                if role == roles.FUNCTOR:
+                    user_list = functors
 
-                    # 职能化人员单独授权
-                    if role == roles.FUNCTOR:
-                        user_list = get_operate_user_list(request)
+                # 审计人员单独授权
+                if role == roles.AUDITOR:
+                    user_list = auditors
 
-                    # 审计人员单独授权
-                    if role == roles.AUDITOR:
-                        user_list = get_auditor_user_list(request)
+                for username in user_list:
+                    if username:
+                        user, _ = user_model.objects.get_or_create(
+                            username=username)
+                        user.groups.add(group)
 
-                    for username in user_list:
-                        if username:
-                            user, _ = user_model.objects.get_or_create(
-                                username=username)
-                            user.groups.add(group)
-
-                cache.set(cache_key, True, DEFAULT_CACHE_TIME_FOR_CC)
+        cache.set(cache_key, True, DEFAULT_CACHE_TIME_FOR_CC)
 
 
 def prepare_view_all_business(request):
@@ -349,6 +351,10 @@ def prepare_business(request, cc_id, use_cache=True):
     else:
         obj, created, extras = get_business_obj(request, cc_id, use_cache)
 
+    # access archived business is not allowed
+    if not obj.available():
+        raise exceptions.Forbidden()
+
     # then, update business object relationships
     if extras:
         update_relationships(request, obj, extras)
@@ -392,17 +398,20 @@ def prepare_user_business(request, use_cache=True):
             }
 
             if defaults['status'] == 'disabled':
+                # do not create model for archived business
                 try:
                     Business.objects.get(cc_id=biz['bk_biz_id'])
                 except Business.DoesNotExist:
                     continue
 
+            # update business status
             obj, _ = Business.objects.update_or_create(
                 cc_id=biz['bk_biz_id'],
                 defaults=defaults
             )
 
-            if obj not in data and is_user_relate_business(user, biz):
+            # only append business which relate to user and not been archived
+            if obj not in data and is_user_relate_business(user, biz) and obj.available():
                 data.append(obj)
 
                 if user.username in set(str(biz[maintainer_key]).split(',')):
@@ -455,11 +464,9 @@ def get_biz_maintainer_info(biz_cc_id, username='', use_in_context=False):
     # 随机取包含 ESB 鉴权信息的运维
     authorized_maintainer = ''
     auth_token = ''
-    for item in maintainers:
-        if item.auth_token:
-            authorized_maintainer = item.username
-            auth_token = item.auth_token
-            break
+    if maintainers:
+        authorized_maintainer = maintainers[0].username
+        auth_token = maintainers[0].auth_token
 
     return authorized_maintainer, auth_token
 
@@ -474,10 +481,10 @@ def get_client_by_user_and_biz_id(username, biz_cc_id):
     # 首先以存在auth_token的运维身份调用接口
     maintainer, __ = get_biz_maintainer_info(biz_cc_id, username)
     if maintainer:
-        return settings.ESB_GET_CLIENT_BY_USER(maintainer)
+        return get_client_by_user(maintainer)
 
     # 无任何业务的运维auth_token信息，只能以自己身份执行
-    return settings.ESB_GET_CLIENT_BY_USER(username)
+    return get_client_by_user(username)
 
 
 def time_now_str():

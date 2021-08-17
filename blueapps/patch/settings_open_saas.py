@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -64,8 +64,11 @@ REMOTE_STATIC_URL = '%sremote/' % STATIC_URL
 
 # 日志
 BK_LOG_DIR = os.getenv('BK_LOG_DIR', '/data/apps/logs/')
-LOGGING = get_paas_v2_logging_config_dict(is_local=IS_LOCAL,
-                                          bk_log_dir=BK_LOG_DIR)
+LOGGING = get_paas_v2_logging_config_dict(
+    is_local=IS_LOCAL,
+    bk_log_dir=BK_LOG_DIR,
+    log_level=locals().get('LOG_LEVEL', 'INFO')
+)
 
 # 请求官方 API 默认版本号，可选值为："v2" 或 ""；其中，"v2"表示规范化API，
 # ""表示未规范化API.如果外面设置了该值则使用设置值,否则默认使用v2

@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -11,8 +11,15 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 specific language governing permissions and limitations under the License.
 """
 
-from abc import ABCMeta
+import logging
+import traceback
+
+from abc import ABCMeta, abstractmethod
 from pipeline.core.flow.base import FlowNode
+from pipeline.engine.signals import pipeline_end
+from pipeline.core.pipeline import Pipeline
+
+logger = logging.getLogger('celery')
 
 
 class Event(FlowNode):
@@ -37,7 +44,10 @@ class EndEvent(ThrowEvent):
     __metaclass__ = ABCMeta
 
     def pipeline_finish(self, root_pipeline_id):
-        return
+        try:
+            pipeline_end.send(sender=Pipeline, root_pipeline_id=root_pipeline_id)
+        except Exception:
+            logger.error("pipeline end handler error %s" % traceback.format_exc())
 
 
 class StartEvent(CatchEvent):
@@ -49,9 +59,12 @@ class EmptyStartEvent(StartEvent):
 
 
 class EmptyEndEvent(EndEvent):
-    def pipeline_finish(self, root_pipeline_id):
-        from pipeline.models import PipelineInstance  # noqa
-        try:
-            PipelineInstance.objects.set_finished(root_pipeline_id)
-        except PipelineInstance.DoesNotExist:  # task which do not belong to any instance
-            pass
+    pass
+
+
+class ExecutableEndEvent(EndEvent):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def execute(self, in_subprocess, root_pipeline_id, current_pipeline_id):
+        raise NotImplementedError()

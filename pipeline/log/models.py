@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -39,8 +39,7 @@ class LogEntryManager(models.Manager):
 
 
 class LogEntry(models.Model):
-    objects = LogEntryManager()
-
+    id = models.BigAutoField(_(u"ID"), primary_key=True)
     logger_name = models.SlugField(_(u"logger 名称"), max_length=128)
     level_name = models.SlugField(_(u"日志等级"), max_length=32)
     message = models.TextField(_(u"日志内容"), null=True)
@@ -49,3 +48,5 @@ class LogEntry(models.Model):
 
     node_id = models.CharField(_(u"节点 ID"), max_length=32, db_index=True)
     history_id = models.IntegerField(_(u"节点执行历史 ID"), default=-1)
+
+    objects = LogEntryManager()

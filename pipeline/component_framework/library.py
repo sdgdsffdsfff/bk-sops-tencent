@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -25,8 +25,7 @@ class ComponentLibrary(object):
             raise ValueError('please pass a component_code in args or kwargs: '
                              'ComponentLibrary(\'code\') or ComponentLibrary(component_code=\'code\')')
         if component_code not in cls.components:
-            raise ComponentNotExistException('component %s does not exist.' %
-                                             component_code)
+            raise ComponentNotExistException('component %s does not exist.' % component_code)
         return cls.components[component_code]
 
     @classmethod
@@ -35,4 +34,7 @@ class ComponentLibrary(object):
 
     @classmethod
     def get_component(cls, component_code, data_dict):
-        return cls.get_component_class(component_code)(data_dict)
+        component_cls = cls.get_component_class(component_code)
+        if component_cls is None:
+            raise ComponentNotExistException('component %s does not exist.' % component_code)
+        return component_cls(data_dict)

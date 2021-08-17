@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -14,8 +14,9 @@ specific language governing permissions and limitations under the License.
 from __future__ import absolute_import
 
 import copy
-import json
 import logging
+
+import ujson as json
 import jsonschema
 
 from django.test import TestCase, Client
@@ -86,6 +87,7 @@ class APITest(TestCase):
         cls.GET_TASK_DETAIL = '/apigw/get_task_detail/{task_id}/{bk_biz_id}/'
         cls.GET_TASK_NODE_DETAIL = '/apigw/get_task_node_detail/{task_id}/{bk_biz_id}/'
         cls.NODE_CALLBACK = '/apigw/node_callback/{task_id}/{bk_biz_id}/'
+        cls.IMPORT_COMMON_FLOW = '/apigw/import_common_template/'
 
         super(APITest, cls).setUpClass()
 
@@ -334,6 +336,7 @@ class APITest(TestCase):
                     category=tmpl.category,
                     pipeline_instance=TEST_DATA,
                     template_id=TEST_TEMPLATE_ID,
+                    template_source='business',
                     create_method='api',
                     create_info=TEST_APP_CODE,
                     flow_type='common',
@@ -378,6 +381,7 @@ class APITest(TestCase):
                     category=tmpl.category,
                     pipeline_instance=TEST_DATA,
                     template_id=TEST_TEMPLATE_ID,
+                    template_source='common',
                     create_method='api',
                     create_info=TEST_APP_CODE,
                     flow_type='common',
@@ -740,35 +744,40 @@ class APITest(TestCase):
         }
         biz = MockBusiness(cc_id=TEST_BIZ_CC_ID, cc_name=TEST_BIZ_CC_NAME)
         template = MockTaskTemplate()
+        replace_template_id_mock = MagicMock()
 
         with mock.patch(TASKTEMPLATE_GET, MagicMock(return_value=template)):
             with mock.patch(BUSINESS_GET, MagicMock(return_value=biz)):
                 with mock.patch(PERIODIC_TASK_CREATE, MagicMock(return_value=task)):
-                    response = self.client.post(path=self.CREATE_PERIODIC_TASK_URL.format(template_id=TEST_TEMPLATE_ID,
-                                                                                          bk_biz_id=TEST_BIZ_CC_ID),
-                                                data=json.dumps({'name': task.name,
-                                                                 'cron': task.cron,
-                                                                 'exclude_task_nodes_id': 'exclude_task_nodes_id'}),
-                                                content_type='application/json')
+                    with mock.patch(APIGW_REPLACE_TEMPLATE_ID, replace_template_id_mock):
+                        response = self.client.post(
+                            path=self.CREATE_PERIODIC_TASK_URL.format(template_id=TEST_TEMPLATE_ID,
+                                                                      bk_biz_id=TEST_BIZ_CC_ID),
+                            data=json.dumps({'name': task.name,
+                                             'cron': task.cron,
+                                             'exclude_task_nodes_id': 'exclude_task_nodes_id'}),
+                            content_type='application/json')
 
-                    TaskFlowInstance.objects.preview_pipeline_tree_exclude_task_nodes.assert_called_with(
-                        template.pipeline_tree,
-                        'exclude_task_nodes_id'
-                    )
+                        TaskFlowInstance.objects.preview_pipeline_tree_exclude_task_nodes.assert_called_with(
+                            template.pipeline_tree,
+                            'exclude_task_nodes_id'
+                        )
 
-                    PeriodicTask.objects.create.assert_called_once_with(
-                        business=biz,
-                        template=template,
-                        name=task.name,
-                        cron=task.cron,
-                        pipeline_tree=template.pipeline_tree,
-                        creator=''
-                    )
+                        PeriodicTask.objects.create.assert_called_once_with(
+                            business=biz,
+                            template=template,
+                            name=task.name,
+                            cron=task.cron,
+                            pipeline_tree=template.pipeline_tree,
+                            creator=''
+                        )
 
-                    data = json.loads(response.content)
+                        data = json.loads(response.content)
 
-                    self.assertTrue(data['result'])
-                    self.assertEqual(data['data'], assert_data)
+                        replace_template_id_mock.assert_called_once_with(TaskTemplate, template.pipeline_tree)
+
+                        self.assertTrue(data['result'])
+                        self.assertEqual(data['data'], assert_data)
 
     @mock.patch(TASKTEMPLATE_GET, MagicMock(side_effect=TaskTemplate.DoesNotExist()))
     def test_create_periodic_task__template_does_not_exist(self):
@@ -810,7 +819,25 @@ class APITest(TestCase):
     @mock.patch(TASKTEMPLATE_GET, MagicMock(return_value=MockTaskTemplate()))
     @mock.patch(APIGW_VIEW_JSON_SCHEMA_VALIDATE, MagicMock())
     @mock.patch(TASKINSTANCE_PREVIEW_TREE, MagicMock())
+    @mock.patch(APIGW_REPLACE_TEMPLATE_ID, MagicMock(side_effect=Exception))
+    def test_create_periodic_task__replace_template_id_fail(self):
+        response = self.client.post(path=self.CREATE_PERIODIC_TASK_URL.format(template_id=TEST_TEMPLATE_ID,
+                                                                              bk_biz_id=TEST_BIZ_CC_ID),
+                                    data=json.dumps({'name': 'name',
+                                                     'cron': 'cron'}),
+                                    content_type='application/json')
+
+        data = json.loads(response.content)
+
+        self.assertFalse(data['result'])
+        self.assertTrue('message' in data)
+
+    @mock.patch(BUSINESS_GET, MagicMock(return_value=MockBusiness(cc_id=TEST_BIZ_CC_ID, cc_name=TEST_BIZ_CC_NAME)))
+    @mock.patch(TASKTEMPLATE_GET, MagicMock(return_value=MockTaskTemplate()))
+    @mock.patch(APIGW_VIEW_JSON_SCHEMA_VALIDATE, MagicMock())
+    @mock.patch(TASKINSTANCE_PREVIEW_TREE, MagicMock())
     @mock.patch(PERIODIC_TASK_CREATE, MagicMock(side_effect=Exception()))
+    @mock.patch(APIGW_REPLACE_TEMPLATE_ID, MagicMock())
     def test_create_periodic_task__periodic_task_create_fail(self):
         response = self.client.post(path=self.CREATE_PERIODIC_TASK_URL.format(template_id=TEST_TEMPLATE_ID,
                                                                               bk_biz_id=TEST_BIZ_CC_ID),
@@ -1046,3 +1073,84 @@ class APITest(TestCase):
 
         self.assertFalse(data['result'])
         self.assertTrue('message' in data)
+
+    @mock.patch(APIGW_VIEW_CHECK_WHITE_LIST, MagicMock(return_value=False))
+    @mock.patch(APIGW_READ_ENCODED_TEMPLATE_DATA, MagicMock())
+    def test_import_common_template__app_has_no_permission(self):
+        response = self.client.post(path=self.IMPORT_COMMON_FLOW)
+
+        data = json.loads(response.content)
+
+        self.assertFalse(data['result'])
+        self.assertTrue('message' in data)
+
+        from gcloud.apigw.views import read_encoded_template_data
+        read_encoded_template_data.assert_not_called()
+
+    @mock.patch(APIGW_VIEW_CHECK_WHITE_LIST, MagicMock(return_value=True))
+    @mock.patch(APIGW_READ_ENCODED_TEMPLATE_DATA, MagicMock(return_value={'result': False, 'message': 'token'}))
+    def test_import_common_template__read_template_data_file_error(self):
+        response = self.client.post(path=self.IMPORT_COMMON_FLOW,
+                                    data=json.dumps({
+                                        'override': False,
+                                        'template_data': 'xxx'
+                                    }),
+                                    content_type='application/json')
+
+        data = json.loads(response.content)
+
+        self.assertFalse(data['result'])
+        self.assertEqual(data['message'], 'token')
+
+    @mock.patch(APIGW_VIEW_CHECK_WHITE_LIST, MagicMock(return_value=True))
+    @mock.patch(APIGW_READ_ENCODED_TEMPLATE_DATA, MagicMock(return_value={'result': True,
+                                                                          'data': {'template_data': 'token'}}))
+    @mock.patch(COMMONTEMPLATE_IMPORT_TEMPLATES, MagicMock(side_effect=Exception()))
+    def test_import_common_template__import_templates_error(self):
+        response = self.client.post(path=self.IMPORT_COMMON_FLOW,
+                                    data=json.dumps({
+                                        'override': False,
+                                        'template_data': 'xxx'
+                                    }),
+                                    content_type='application/json')
+
+        data = json.loads(response.content)
+
+        self.assertFalse(data['result'])
+        self.assertTrue('message' in data)
+
+    @mock.patch(APIGW_VIEW_CHECK_WHITE_LIST, MagicMock(return_value=True))
+    @mock.patch(APIGW_READ_ENCODED_TEMPLATE_DATA, MagicMock(return_value={'result': True,
+                                                                          'data': {'template_data': 'token'}}))
+    @mock.patch(COMMONTEMPLATE_IMPORT_TEMPLATES, MagicMock(return_value={'result': False, 'message': 'token'}))
+    def test_import_common_template__import_templates_fail(self):
+        response = self.client.post(path=self.IMPORT_COMMON_FLOW,
+                                    data=json.dumps({
+                                        'override': False,
+                                        'template_data': 'xxx'
+                                    }),
+                                    content_type='application/json')
+
+        data = json.loads(response.content)
+
+        self.assertFalse(data['result'])
+        self.assertEqual(data['message'], 'token')
+
+    @mock.patch(APIGW_VIEW_CHECK_WHITE_LIST, MagicMock(return_value=True))
+    @mock.patch(APIGW_READ_ENCODED_TEMPLATE_DATA, MagicMock(return_value={'result': True,
+                                                                          'data': {'template_data': 'token'}}))
+    @mock.patch(COMMONTEMPLATE_IMPORT_TEMPLATES, MagicMock(return_value={'result': True, 'message': 'token'}))
+    def test_import_common_template__success(self):
+        response = self.client.post(path=self.IMPORT_COMMON_FLOW,
+                                    data=json.dumps({
+                                        'override': True,
+                                        'template_data': 'xxx'
+                                    }),
+                                    content_type='application/json')
+
+        data = json.loads(response.content)
+
+        self.assertTrue(data['result'])
+        self.assertEqual(data['message'], 'token')
+
+        CommonTemplate.objects.import_templates.assert_called_once_with('token', True)

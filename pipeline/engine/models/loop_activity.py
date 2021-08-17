@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -66,7 +66,7 @@ class LoopActivityHistory(models.Model):
     loop = models.PositiveIntegerField(_(u"本次循环计数"))
     started_time = models.DateTimeField(_(u"开始时间"))
     archived_time = models.DateTimeField(_(u"结束时间"))
-    data = models.ForeignKey(HistoryData)
+    data = models.ForeignKey(HistoryData, db_constraint=False)
     state = models.CharField(_(u"执行状态"), max_length=10)
     schedule = models.ForeignKey(LoopActivityScheduleHistory, null=True)
 

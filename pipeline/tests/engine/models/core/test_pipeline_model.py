@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -15,7 +15,7 @@ import mock
 
 from django.test import TestCase
 
-from django_signal_valve import valve
+from pipeline.django_signal_valve import valve
 from pipeline.engine import signals
 from pipeline.core.pipeline import Pipeline
 from pipeline.engine.models import PipelineModel, PipelineProcess
@@ -33,7 +33,7 @@ class TestPipelineModel(TestCase):
         self.assertEqual(pipeline_model.process.id, process.id)
         self.assertEqual(pipeline_model.id, pipeline.id)
 
-    @mock.patch('django_signal_valve.valve.send', mock.MagicMock())
+    @mock.patch('pipeline.django_signal_valve.valve.send', mock.MagicMock())
     def test_pipeline_ready(self):
         process_id = uniqid()
         PipelineModel.objects.pipeline_ready(process_id=process_id)

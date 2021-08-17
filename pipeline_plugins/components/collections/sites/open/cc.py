@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -12,21 +12,21 @@ specific language governing permissions and limitations under the License.
 """
 
 import logging
+import traceback
 
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
 
-from gcloud.conf.default_settings import ESB_GET_CLIENT_BY_USER as get_client_by_user
-
-from pipeline.conf import settings
 from pipeline.core.flow.activity import Service
 from pipeline.component_framework.component import Component
 from pipeline_plugins.components.utils import get_ip_by_regex, handle_api_error
+from gcloud.conf import settings
 
 logger = logging.getLogger('celery')
+get_client_by_user = settings.ESB_GET_CLIENT_BY_USER
 
 __group_name__ = _(u"配置平台(CMDB)")
-__group_icon__ = '%scomponents/icons/cc.png' % settings.STATIC_URL
+__group_icon__ = '%scomponents/atoms/cc/cc.png' % settings.STATIC_URL
 
 
 def cc_handle_api_error(api_name, params, error):
@@ -186,7 +186,7 @@ class CCTransferHostModuleComponent(Component):
     name = _(u"转移主机模块")
     code = 'cc_transfer_host_module'
     bound_service = CCTransferHostModuleService
-    form = '%scomponents/atoms/sites/%s/cc/cc_transfer_host_module.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_transfer_host_module.js' % settings.STATIC_URL
 
 
 class CCUpdateHostService(Service):
@@ -278,7 +278,7 @@ class CCUpdateHostComponent(Component):
     name = _(u"更新主机属性")
     code = 'cc_update_host'
     bound_service = CCUpdateHostService
-    form = '%scomponents/atoms/sites/%s/cc/cc_update_host.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_update_host.js' % settings.STATIC_URL
 
 
 class CCReplaceFaultMachineService(Service):
@@ -369,11 +369,11 @@ class CCReplaceFaultMachineService(Service):
             new_host = host_dict.get(new_ip)
 
             if not fault_host:
-                data.outputs.ex_data = _(u"无法查询到 %s 机器信息，请确认该机器是否在当前业务下" % fault_host)
+                data.outputs.ex_data = _(u"无法查询到 %s 机器信息，请确认该机器是否在当前业务下") % fault_ip
                 return False
 
             if not new_host:
-                data.outputs.ex_data = _(u"无法查询到 %s 机器信息，请确认该机器是否在当前业务下" % new_host)
+                data.outputs.ex_data = _(u"无法查询到 %s 机器信息，请确认该机器是否在当前业务下") % new_ip
                 return False
 
             update_item = {
@@ -435,7 +435,9 @@ class CCReplaceFaultMachineService(Service):
                                            kwargs,
                                            transfer_result['message'])
                 logger.error(message)
-                data.outputs.ex_data = '%s, %s'.format(_(u"成功替换的机器: %s") % success)
+                data.outputs.ex_data = u"{msg}\n{success}".format(
+                    msg=message,
+                    success=_(u"成功替换的机器: %s") % ','.join(success))
                 return False
 
             success.append(host_id_to_ip[kwargs['bk_host_id'][0]])
@@ -448,7 +450,7 @@ class CCReplaceFaultMachineComponent(Component):
     name = _(u"故障机替换")
     code = 'cc_replace_fault_machine'
     bound_service = CCReplaceFaultMachineService
-    form = '%scomponents/atoms/sites/%s/cc/cc_replace_fault_machine.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_replace_fault_machine.js' % settings.STATIC_URL
 
 
 class CCEmptySetHostsService(Service):
@@ -487,7 +489,7 @@ class CCEmptySetHostsComponent(Component):
     name = _(u"清空集群中主机")
     code = 'cc_empty_set_hosts'
     bound_service = CCEmptySetHostsService
-    form = '%scomponents/atoms/sites/%s/cc/cc_empty_set_hosts.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_empty_set_hosts.js' % settings.STATIC_URL
 
 
 class CCBatchDeleteSetService(Service):
@@ -528,7 +530,7 @@ class CCBatchDeleteSetComponent(Component):
     name = _(u"删除集群")
     code = 'cc_batch_delete_set'
     bound_service = CCBatchDeleteSetService
-    form = '%scomponents/atoms/sites/%s/cc/cc_batch_delete_set.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_batch_delete_set.js' % settings.STATIC_URL
 
 
 class CCUpdateSetServiceStatusService(Service):
@@ -571,7 +573,7 @@ class CCUpdateSetServiceStatusComponent(Component):
     name = _(u"修改集群服务状态")
     code = 'cc_update_set_service_status'
     bound_service = CCUpdateSetServiceStatusService
-    form = '%scomponents/atoms/sites/%s/cc/cc_update_set_service_status.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_update_set_service_status.js' % settings.STATIC_URL
 
 
 class CCCreateSetService(Service):
@@ -588,49 +590,63 @@ class CCCreateSetService(Service):
 
         cc_set_parent_select = cc_format_tree_mode_id(data.get_one_of_inputs('cc_set_parent_select'))
         cc_set_info = data.get_one_of_inputs('cc_set_info')
-        cc_kwargs = {
-            'bk_biz_id': biz_cc_id,
-            'bk_supplier_account': supplier_account,
-            'data': {}
-        }
+
+        bk_set_env = cc_format_prop_data(executor,
+                                         'set',
+                                         'bk_set_env',
+                                         parent_data.get_one_of_inputs('language'),
+                                         supplier_account)
+        if not bk_set_env['result']:
+            data.set_outputs('ex_data', bk_set_env['message'])
+            return False
+
+        bk_service_status = cc_format_prop_data(executor,
+                                                'set',
+                                                'bk_service_status',
+                                                parent_data.get_one_of_inputs('language'),
+                                                supplier_account)
+        if not bk_service_status['result']:
+            data.set_outputs('ex_data', bk_service_status['message'])
+            return False
+
+        set_list = []
+        for set_params in cc_set_info:
+            set_property = {}
+            for key, value in list(set_params.items()):
+                if value:
+                    if key == "bk_set_env":
+                        value = bk_set_env['data'].get(value)
+                        if not value:
+                            data.set_outputs('ex_data', _(u"环境类型校验失败，请重试并修改为正确的环境类型"))
+                            return False
+
+                    elif key == "bk_service_status":
+                        value = bk_service_status['data'].get(value)
+                        if not value:
+                            data.set_outputs('ex_data', _(u"服务状态校验失败，请重试并修改为正确的服务状态"))
+                            return False
+
+                    elif key == "bk_capacity":
+                        try:
+                            value = int(value)
+                        except Exception:
+                            self.logger.error(traceback.format_exc())
+                            data.set_outputs('ex_data', _(u"集群容量必须为整数"))
+                            return False
+
+                    set_property[key] = value
+            set_list.append(set_property)
 
         for parent_id in cc_set_parent_select:
-            cc_kwargs['data']['bk_parent_id'] = parent_id
-            for set_params in cc_set_info:
-                for key, value in set_params.items():
-                    if value:
-                        if key == "bk_set_env":
-                            bk_set_env = cc_format_prop_data(executor,
-                                                             'set',
-                                                             'bk_set_env',
-                                                             parent_data.get_one_of_inputs('language'),
-                                                             supplier_account)
-                            if not bk_set_env['result']:
-                                data.set_outputs('ex_data', bk_set_env['message'])
-                                return False
-
-                            value = bk_set_env['data'].get(value)
-                            if not value:
-                                data.set_outputs('ex_data', _(u"环境类型校验失败，请重试并修改为正确的环境类型"))
-                                return False
-
-                        elif key == "bk_service_status":
-                            bk_service_status = cc_format_prop_data(executor,
-                                                                    'set',
-                                                                    'bk_service_status',
-                                                                    parent_data.get_one_of_inputs('language'),
-                                                                    supplier_account)
-                            if not bk_service_status['result']:
-                                data.set_outputs('ex_data', bk_service_status['message'])
-                                return False
-
-                            value = bk_service_status['data'].get(value)
-                            if not value:
-                                data.set_outputs('ex_data', _(u"服务状态校验失败，请重试并修改为正确的服务状态"))
-                                return False
-
-                        cc_kwargs['data'][key] = value
-
+            for set_data in set_list:
+                cc_kwargs = {
+                    'bk_biz_id': biz_cc_id,
+                    'bk_supplier_account': supplier_account,
+                    'data': {
+                        'bk_parent_id': parent_id
+                    }
+                }
+                cc_kwargs['data'].update(set_data)
                 cc_result = client.cc.create_set(cc_kwargs)
                 if not cc_result['result']:
                     message = cc_handle_api_error('cc.create_set',
@@ -638,6 +654,7 @@ class CCCreateSetService(Service):
                                                   cc_result['message'])
                     data.set_outputs('ex_data', message)
                     return False
+
         return True
 
     def outputs_format(self):
@@ -648,7 +665,7 @@ class CCCreateSetComponent(Component):
     name = _(u"创建集群")
     code = 'cc_create_set'
     bound_service = CCCreateSetService
-    form = '%scomponents/atoms/sites/%s/cc/cc_create_set.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_create_set.js' % settings.STATIC_URL
 
 
 class CCUpdateSetService(Service):
@@ -725,7 +742,7 @@ class CCUpdateSetComponent(Component):
     name = _(u"更新集群属性")
     code = 'cc_update_set'
     bound_service = CCUpdateSetService
-    form = '%scomponents/atoms/sites/%s/cc/cc_update_set.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_update_set.js' % settings.STATIC_URL
 
 
 class CCUpdateModuleService(Service):
@@ -798,7 +815,7 @@ class CCUpdateModuleComponent(Component):
     name = _(u"更新模块属性")
     code = 'cc_update_module'
     bound_service = CCUpdateModuleService
-    form = '%scomponents/atoms/sites/%s/cc/cc_update_module.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_update_module.js' % settings.STATIC_URL
 
 
 class CCTransferHostToIdleService(Service):
@@ -843,4 +860,90 @@ class CCTransferHostToIdleComponent(Component):
     name = _(u"转移主机至空闲机")
     code = 'cc_transfer_to_idle'
     bound_service = CCTransferHostToIdleService
-    form = '%scomponents/atoms/sites/%s/cc/cc_transfer_to_idle.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/cc/cc_transfer_to_idle.js' % settings.STATIC_URL
+
+
+class CmdbTransferFaultHostService(Service):
+
+    def execute(self, data, parent_data):
+        executor = parent_data.get_one_of_inputs('executor')
+        biz_cc_id = parent_data.get_one_of_inputs('biz_cc_id')
+        supplier_account = parent_data.get_one_of_inputs('biz_supplier_account')
+
+        client = get_client_by_user(executor)
+        if parent_data.get_one_of_inputs('language'):
+            setattr(client, 'language', parent_data.get_one_of_inputs('language'))
+            translation.activate(parent_data.get_one_of_inputs('language'))
+
+        # 查询主机id
+        ip_list = get_ip_by_regex(data.get_one_of_inputs('cc_host_ip'))
+        host_result = cc_get_host_id_by_innerip(executor, biz_cc_id, ip_list, supplier_account)
+        if not host_result['result']:
+            data.set_outputs('ex_data', host_result['message'])
+            return False
+
+        transfer_params = {
+            "bk_biz_id": biz_cc_id,
+            "bk_host_id": [int(host_id) for host_id in host_result['data']]
+        }
+        transfer_result = client.cc.transfer_host_to_faultmodule(transfer_params)
+        if transfer_result['result']:
+            return True
+        else:
+            message = cc_handle_api_error('cc.transfer_host_to_fault_module',
+                                          transfer_params, transfer_result['message'])
+            data.set_outputs('ex_data', message)
+            return False
+
+    def outputs_format(self):
+        return []
+
+
+class CmdbTransferFaultHostComponent(Component):
+    name = _(u'转移主机到业务的故障机模块')
+    code = 'cmdb_transfer_fault_host'
+    bound_service = CmdbTransferFaultHostService
+    form = '%scomponents/atoms/cc/cmdb_transfer_fault_host.js' % settings.STATIC_URL
+
+
+class CmdbTransferHostResourceModuleService(Service):
+
+    def execute(self, data, parent_data):
+        executor = parent_data.get_one_of_inputs('executor')
+        biz_cc_id = parent_data.get_one_of_inputs('biz_cc_id')
+        supplier_account = parent_data.get_one_of_inputs('biz_supplier_account')
+
+        client = get_client_by_user(executor)
+        if parent_data.get_one_of_inputs('language'):
+            setattr(client, 'language', parent_data.get_one_of_inputs('language'))
+            translation.activate(parent_data.get_one_of_inputs('language'))
+
+        # 查询主机id
+        ip_list = get_ip_by_regex(data.get_one_of_inputs('cc_host_ip'))
+        host_result = cc_get_host_id_by_innerip(executor, biz_cc_id, ip_list, supplier_account)
+        if not host_result['result']:
+            data.set_outputs('ex_data', host_result['message'])
+            return False
+
+        transfer_params = {
+            "bk_biz_id": biz_cc_id,
+            "bk_host_id": [int(host_id) for host_id in host_result['data']]
+        }
+        transfer_result = client.cc.transfer_host_to_resourcemodule(transfer_params)
+        if transfer_result['result']:
+            return True
+        else:
+            message = cc_handle_api_error('cc.transfer_host_to_resource_module',
+                                          transfer_params, transfer_result['message'])
+            data.set_outputs('ex_data', message)
+            return False
+
+    def outputs_format(self):
+        return []
+
+
+class CmdbTransferHostResourceModuleComponent(Component):
+    name = _(u'转移主机至资源池')
+    code = 'cmdb_transfer_host_resource'
+    bound_service = CmdbTransferHostResourceModuleService
+    form = '%scomponents/atoms/cc/cmdb_transfer_host_resource.js' % settings.STATIC_URL

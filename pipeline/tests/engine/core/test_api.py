@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -24,7 +24,7 @@ from pipeline.engine.core import data
 from pipeline.conf import settings
 from pipeline.engine.core import api
 from pipeline.engine.models import FunctionSwitch
-from django_signal_valve import valve
+from pipeline.django_signal_valve import valve
 
 
 class EngineCoreApiTestCase(TestCase):
@@ -35,7 +35,7 @@ class EngineCoreApiTestCase(TestCase):
         FunctionSwitch.objects.freeze_engine.assert_called_once()
 
     @mock.patch('pipeline.engine.models.FunctionSwitch.objects.unfreeze_engine', mock.MagicMock())
-    @mock.patch('django_signal_valve.valve.open_valve', mock.MagicMock())
+    @mock.patch('pipeline.django_signal_valve.valve.open_valve', mock.MagicMock())
     def test_unfreeze(self):
         class MockFrozenProcess(object):
             pass

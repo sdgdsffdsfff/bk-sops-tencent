@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -18,8 +18,8 @@ from pipeline.conf import settings
 adapter_api = importlib.import_module(settings.PIPELINE_ENGINE_ADAPTER_API)
 
 
-def run_pipeline(pipeline, instance_id=None):
-    return adapter_api.run_pipeline(pipeline, instance_id)
+def run_pipeline(pipeline, instance_id=None, check_workers=True):
+    return adapter_api.run_pipeline(pipeline, instance_id, check_workers=check_workers)
 
 
 def pause_pipeline(pipeline_id):
@@ -82,5 +82,5 @@ def callback(act_id, data=None):
     return adapter_api.callback(act_id, data)
 
 
-def get_single_state(act_id):
-    return adapter_api.get_single_state(act_id)
+def get_plain_log_for_node(node_id, history_id=-1):
+    return adapter_api.get_plain_log_for_node(node_id, history_id)

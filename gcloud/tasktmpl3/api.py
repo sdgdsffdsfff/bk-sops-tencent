@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -28,10 +28,8 @@ from guardian.shortcuts import (
 
 from gcloud.conf import settings
 from gcloud.exceptions import FlowExportError
-from gcloud.core.constant import TASK_CATEGORY, TASK_FLOW_TYPE, NOTIFY_TYPE
 from gcloud.core.decorators import check_user_perm_of_business
 from gcloud.core.roles import ALL_ROLES
-
 from gcloud.core.utils import convert_group_name, time_now_str, check_and_rename_params
 from gcloud.commons.template.constants import PermNm
 from gcloud.commons.template.utils import (
@@ -40,7 +38,6 @@ from gcloud.commons.template.utils import (
     read_template_data_file
 )
 from gcloud.commons.template.forms import TemplateImportForm
-from gcloud.tasktmpl3.utils import get_notify_group_by_biz_core
 from gcloud.tasktmpl3.models import TaskTemplate
 
 logger = logging.getLogger('root')
@@ -180,60 +177,17 @@ def save_perms(request, biz_cc_id):
     return JsonResponse(ctx)
 
 
-# TODO： 该方法已迁移至 core/api/get_basic_info ，等待前端完成迁移后删除
-@require_GET
-def get_business_basic_info(request, biz_cc_id):
-    """
-    @summary: 获取业务基本配置信息
-    @param request:
-    @param biz_cc_id:
-    @note:
-    """
-    # 类型数据来源
-    task_categories = []
-    for item in TASK_CATEGORY:
-        task_categories.append({
-            'value': item[0],
-            'name': item[1]
-        })
-    # 模板流程来源
-    flow_type_list = []
-    for item in TASK_FLOW_TYPE:
-        flow_type_list.append({
-            'value': item[0],
-            'name': item[1]
-        })
-
-    # 出错通知人员分组
-    notify_group = get_notify_group_by_biz_core(biz_cc_id)
-
-    # 出错通知方式来源
-    notify_type_list = []
-    for item in NOTIFY_TYPE:
-        notify_type_list.append({
-            'value': item[0],
-            'name': item[1]
-        })
-
-    ctx = {
-        "task_categories": task_categories,
-        "flow_type_list": flow_type_list,
-        "notify_group": notify_group,
-        "notify_type_list": notify_type_list
-    }
-    return JsonResponse(ctx, safe=False)
-
-
-@require_GET
+@require_POST
 @check_user_perm_of_business('manage_business')
 def export_templates(request, biz_cc_id):
-    try:
-        template_id_list = json.loads(request.GET.get('template_id_list'))
-    except Exception:
-        return JsonResponse({'result': False, 'message': 'invalid template_id_list'})
+    data = json.loads(request.body)
+    template_id_list = data['template_id_list']
 
     if not isinstance(template_id_list, list):
         return JsonResponse({'result': False, 'message': 'invalid template_id_list'})
+
+    if not template_id_list:
+        return JsonResponse({'result': False, 'message': 'template_id_list can not be empty'})
 
     # wash
     try:

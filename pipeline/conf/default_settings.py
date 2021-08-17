@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -31,7 +31,9 @@ PIPELINE_INSTANCE_CONTEXT = getattr(settings, 'PIPELINE_INSTANCE_CONTEXT', '')
 PIPELINE_ENGINE_ADAPTER_API = getattr(settings, 'PIPELINE_ENGINE_ADAPTER_API',
                                       'pipeline.service.pipeline_engine_adapter.adapter_api')
 PIPELINE_DATA_BACKEND = getattr(settings, 'PIPELINE_DATA_BACKEND',
-                                'pipeline.engine.core.data.redis_backend.RedisDataBackend')
+                                'pipeline.engine.core.data.mysql_backend.MySQLDataBackend')
+PIPELINE_END_HANDLER = getattr(settings, 'PIPELINE_END_HANDLER',
+                               'pipeline.engine.signals.handlers.pipeline_end_handler')
 PIPELINE_WORKER_STATUS_CACHE_EXPIRES = getattr(settings, 'PIPELINE_WORKER_STATUS_CACHE_EXPIRES',
                                                30)
 PIPELINE_RERUN_MAX_TIMES = getattr(settings, 'PIPELINE_RERUN_MAX_TIMES', 0)
@@ -50,4 +52,12 @@ VARIABLE_AUTO_DISCOVER_PATH += getattr(settings, 'VARIABLE_PATH', [])
 
 PIPELINE_PARSER_CLASS = getattr(settings, 'PIPELINE_PARSER_CLASS', 'pipeline.parser.pipeline_parser.PipelineParser')
 
-ENABLE_EXAMPLE_COMPONENTS = getattr(settings, 'ENABLE_EXAMPLE_COMPONENTS', False)
+ENABLE_EXAMPLE_COMPONENTS = getattr(settings, 'ENABLE_EXAMPLE_COMPONENTS', True)
+
+UUID_DIGIT_STARTS_SENSITIVE = getattr(settings, 'UUID_DIGIT_STARTS_SENSITIVE', False)
+
+PIPELINE_LOG_LEVEL = getattr(settings, 'PIPELINE_LOG_LEVEL', 'INFO')
+
+# 远程插件包源默认配置
+EXTERNAL_PLUGINS_SOURCE_PROXY = getattr(settings, 'EXTERNAL_PLUGINS_SOURCE_PROXY', None)
+EXTERNAL_PLUGINS_SOURCE_SECURE_RESTRICT = getattr(settings, 'EXTERNAL_PLUGINS_SOURCE_SECURE_RESTRICT', True)

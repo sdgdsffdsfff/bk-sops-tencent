@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -10,6 +10,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+
+import logging
 
 from django.http import HttpResponseRedirect, JsonResponse
 try:
@@ -19,6 +21,8 @@ except Exception:
 
 from blueapps.account.utils.http import build_redirect_url
 from blueapps.core.exceptions import RioVerifyError
+
+logger = logging.getLogger('root')
 
 
 class ResponseHandler(object):
@@ -123,6 +127,7 @@ class ResponseHandler(object):
         }
         _redirect = build_redirect_url(
             _next, _login_url, 'redirect_uri', extra_args=extra_args)
+        logger.info('weixin build 401 redirect url: %s' % _redirect)
         return HttpResponseRedirect(_redirect)
 
     def build_rio_401_response(self, request):

@@ -5,6 +5,7 @@ Query flow templates list of the business
 ### Request Parameters
 
 #### General Parameters
+
 |   Field         |  Type       | Required |  Description    |
 |-----------------|-------------|---------|------------------|
 |   bk_app_code   |   string    |   YES    |  APP ID |
@@ -17,21 +18,23 @@ Query flow templates list of the business
 | Field          |  Type       | Required   |  Description             |
 |---------------|------------|--------|-------------------|
 | bk_biz_id     |  string    | YES     | the business ID     |
+|   template_source | string   | NO    | source of flow，default value is business. business: from business, common: from common flow |
 
 ### Request Parameters Example
 
-```python
+```
 {
     "bk_app_code": "esb_test",
     "bk_app_secret": "xxx",
     "bk_token": "xxx",
-    "bk_biz_id": "2"
+    "bk_biz_id": "2",
+    "template_source": "business"
 }
 ```
 
 ### Return Result Example
 
-```python
+```
 {
     "result": true,
     "data": [
@@ -72,7 +75,7 @@ Query flow templates list of the business
 }
 ```
 
-### Return Result Parameters DescriptionExample
+### Return Result Description
 
 | Field      | Type      | Description      |
 |-----------|----------|-----------|

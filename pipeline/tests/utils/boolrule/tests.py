@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -188,3 +188,20 @@ class BoolRuleTests(TestCase):
         self.assertFalse(BoolRule('${v1} == True').test(context))
         self.assertFalse(BoolRule('${v1} == "True"').test(context))
         self.assertFalse(BoolRule('${v1} == "s"').test(context))
+
+    def test_multi_or(self):
+        self.assertTrue(BoolRule('("s" > "s" or "su" > "st") or (1 > 3 and 2 < 3)').test())
+        self.assertTrue(BoolRule('(1 > 3 and 2 < 3)  or ("s" > "s" or "su" > "st")').test())
+        self.assertTrue(BoolRule('(1 < 3 and 2 < 3)  or ("s" > "s" or "su" > "st")').test())
+        self.assertTrue(BoolRule('(1 > 2 or 2 > 3) or ("s" > "s" or "su" > "st") or (4  > 5 and 5 < 6)').test())
+
+        self.assertFalse(BoolRule('(1 > 2 or 2 > 3) or ("s" > "s" or "su" < "st")').test())
+        self.assertFalse(BoolRule('(1 > 2 or 2 > 3) or ("s" > "s" or "su" < "st") or (4  > 5 and 5 < 6)').test())
+
+    def test_multi_and(self):
+        self.assertTrue(BoolRule('("s" > "s" or "su" > "st") and (1 < 3 and 2 < 3)').test())
+
+        self.assertFalse(BoolRule('(1 < 2 or 2 > 3) and ("s" > "s" or "su" < "st")').test())
+        self.assertFalse(BoolRule('(1 > 2 or 2 > 3) and ("s" > "s" or "su" > "st")').test())
+        self.assertFalse(BoolRule('(1 > 2 or 2 > 3) and ("s" > "s" or "su" < "st")').test())
+        self.assertFalse(BoolRule('(1 < 3 and 2 < 3)  and ("s" > "s" or "su" > "st") and (4 > 5 and 5 < 6)').test())

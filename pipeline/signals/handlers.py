@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -15,8 +15,16 @@ from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from pipeline.models import PipelineTemplate, TemplateRelationship, TemplateVersion, TemplateCurrentVersion
+from pipeline.core.pipeline import Pipeline
 from pipeline.core.constants import PE
+from pipeline.engine.signals import pipeline_end
+from pipeline.models import (
+    PipelineTemplate,
+    TemplateRelationship,
+    TemplateVersion,
+    TemplateCurrentVersion,
+    PipelineInstance
+)
 
 
 @receiver(pre_save, sender=PipelineTemplate)
@@ -52,3 +60,11 @@ def pipeline_template_post_save_handler(sender, instance, created, **kwargs):
             TemplateRelationship.objects.bulk_create(rs)
         TemplateVersion.objects.track(template)
         TemplateCurrentVersion.objects.update_current_version(template)
+
+
+@receiver(pipeline_end, sender=Pipeline)
+def pipeline_end_handler(sender, root_pipeline_id, **kwargs):
+    try:
+        PipelineInstance.objects.set_finished(root_pipeline_id)
+    except PipelineInstance.DoesNotExist:  # task which do not belong to any instance
+        pass

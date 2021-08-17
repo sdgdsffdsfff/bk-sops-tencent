@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -247,11 +247,8 @@ class RuntimeTestCase(TestCase):
         # 6. test normal
         hdl = MagicMock(return_value=MockHandlerResult(should_return=True,
                                                        should_sleep=False))
-        mock_handlers = {
-            IdentifyObject().__class__: hdl
-        }
 
-        with patch('pipeline.engine.core.runtime.FLOW_NODE_HANDLERS', mock_handlers):
+        with patch('pipeline.engine.core.runtime.HandlersFactory.handlers_for', MagicMock(return_value=hdl)):
             # 6.1. test should return
             current_node = IdentifyObject(name='name')
             process = MockPipelineProcess(top_pipeline=PipelineObject(node=current_node),
@@ -415,7 +412,7 @@ class RuntimeTestCase(TestCase):
     @patch(PIPELINE_ENGINE_IS_FROZEN, MagicMock(return_value=False))
     @patch(PIPELINE_STATUS_TRANSIT, MagicMock(return_value=MockActionResult(result=True, extra=MockStatus(loop=11))))
     @patch(PIPELINE_STATUS_FAIL, MagicMock())
-    def test_run_loop__fail_with_node_reach_run_limit(self):
+    def __fail_with_node_reach_run_limit(self):
         with patch(PIPELINE_SETTING_RERUN_MAX_LIMIT, 10):
             current_node = IdentifyObject()
             process = MockPipelineProcess(top_pipeline=PipelineObject(node=current_node),

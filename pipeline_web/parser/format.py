@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -22,7 +22,8 @@ from pipeline.core.data.expression import ConstantTemplate, format_constant_key
 def format_web_data_to_pipeline(web_pipeline, is_subprocess=False):
     """
     @summary:
-    @param web_pipeline:
+    @param web_pipeline: pipeline 前端数据
+    @param is_subprocess: 是否子流程
     @return:
     """
     pipeline_tree = copy.deepcopy(web_pipeline)
@@ -93,8 +94,11 @@ def classify_constants(constants, is_subprocess):
             info['is_param'] = True
         else:
             info['is_param'] = False
-        if info['source_tag']:
-            var_cls = library.VariableLibrary.get_var_class(info['source_tag'].split('.')[0])
+
+        if info['custom_type']:
+            var_cls = library.VariableLibrary.get_var_class(info['custom_type'])
+
+        # 输出参数
         if info['source_type'] == 'component_outputs':
             source_key = info['source_info'].values()[0][0]
             source_step = info['source_info'].keys()[0]
@@ -107,15 +111,15 @@ def classify_constants(constants, is_subprocess):
             }
             acts_outputs.setdefault(source_step, {}).update({source_key: key})
         # 自定义的Lazy类型变量
-        elif info['source_tag'] and var_cls and issubclass(var_cls, var.LazyVariable):
+        elif info['custom_type'] and var_cls and issubclass(var_cls, var.LazyVariable):
             data_inputs[key] = {
                 'type': 'lazy',
                 'source_tag': info['source_tag'],
+                'custom_type': info['custom_type'],
                 'value': info['value'],
                 'is_param': info['is_param']
             }
         else:
-            #
             if info['show_type'] == 'show' and is_subprocess:
                 params[key] = info
             # 只有隐藏的变量才需要预先解析

@@ -5,6 +5,7 @@ Query a task or task node execution status
 ### Request Parameters
 
 #### General Parameters
+
 |   Field         |  Type       | Required |  Description    |
 |-----------------|-------------|---------|------------------|
 |   bk_app_code   |   string    |   YES    |  APP ID |
@@ -21,7 +22,7 @@ Query a task or task node execution status
 
 ### Request Parameters Example
 
-```python
+```
 {
     "bk_app_code": "esb_test",
     "bk_app_secret": "xxx",
@@ -33,7 +34,7 @@ Query a task or task node execution status
 
 ### Return Result Example
 
-```python
+```
 {
 	"result": true,
     "data": {
@@ -76,7 +77,7 @@ Query a task or task node execution status
 }
 ```
 
-### Return Result Parameters DescriptionExample
+### Return Result Description
 
 | Field      | Type      | Description      |
 |-----------|----------|-----------|
@@ -95,6 +96,7 @@ Query a task or task node execution status
 |  start_time |    string    |      start time   |
 |  finish_time|    string    |      finish time    |
 |  children   |    dict      |      task detail of children nodes, details are described below   |
+|  name   |    string      |      node name   |
 
 #### data.state
 

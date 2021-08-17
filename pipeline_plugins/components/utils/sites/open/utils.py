@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -11,19 +11,24 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 specific language governing permissions and limitations under the License.
 """
 
-import json
 import re
 import logging
 
 from urllib import urlencode
+import ujson as json
 from cryptography.fernet import Fernet
 from django.core.cache import cache
-from django.conf import settings
 
-from gcloud.conf.default_settings import ESB_GET_CLIENT_BY_USER as get_client_by_user
-from pipeline_plugins.components.utils.common import supplier_account_inject, get_ip_by_regex, ip_re, ip_pattern
+from pipeline_plugins.components.utils import (
+    supplier_account_inject,
+    get_ip_by_regex,
+    ip_re,
+    ip_pattern
+)
+from gcloud.conf import settings
 
 logger = logging.getLogger('root')
+get_client_by_user = settings.ESB_GET_CLIENT_BY_USER
 
 __all__ = [
     'cc_get_ips_info_by_str',
@@ -164,7 +169,8 @@ def cc_get_ip_list_by_biz_and_user(username, biz_cc_id, supplier_account, use_ca
             # 多IP主机处理，取第一个IP
             for host in data:
                 if ',' in host['host']['bk_host_innerip']:
-                    host['bk_host_innerip'] = host['bk_host_innerip'].split(',')[0]
+                    logger.info('IP[%s] has multiple bk_host_innerip' % host['host']['bk_host_innerip'])
+                    host['host']['bk_host_innerip'] = host['host']['bk_host_innerip'].split(',')[0]
             cache.set(cache_key, data, 60)
         else:
             logger.warning((u"search_host ERROR###biz_cc_id=%s"
@@ -250,6 +256,5 @@ def get_job_instance_url(biz_cc_id, job_instance_id):
 
 def get_node_callback_url(node_id):
     f = Fernet(settings.CALLBACK_KEY)
-    return "%s/%s/taskflow/api/nodes/callback/%s/" % (settings.BK_PAAS_HOST,
-                                                      settings.CALLBACK_PREFIX,
-                                                      f.encrypt(bytes(node_id)))
+    return "%staskflow/api/nodes/callback/%s/" % (settings.APP_HOST,
+                                                  f.encrypt(bytes(node_id)))

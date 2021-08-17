@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -71,15 +71,12 @@ def save(request, biz_cc_id):
         'logo_content': logo_content,
     })
 
-    if settings.RUN_MODE == 'PRODUCT':
-        params['link_prefix'] = settings.APP_MAKER_LINK_PREFIX
-        fake = False
-    elif settings.RUN_MODE == 'STAGING':
-        params['link_prefix'] = settings.TEST_APP_MAKER_LINK_PREFIX
-        fake = False
-    else:
-        params['link_prefix'] = '%s/' % request.get_host()
+    if settings.IS_LOCAL:
+        params['link_prefix'] = '%s/appmaker/' % request.get_host()
         fake = True
+    else:
+        params['link_prefix'] = '%sappmaker/' % settings.APP_HOST
+        fake = False
 
     result, data = AppMaker.objects.save_app_maker(
         biz_cc_id, params, fake

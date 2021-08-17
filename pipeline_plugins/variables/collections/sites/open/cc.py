@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -13,6 +13,8 @@ specific language governing permissions and limitations under the License.
 
 import logging
 import re
+
+from django.utils.translation import ugettext_lazy as _
 
 from pipeline.conf import settings
 from pipeline_plugins.cmdb_ip_picker.utils import get_ip_picker_result
@@ -27,7 +29,10 @@ logger = logging.getLogger('root')
 
 
 class VarIpPickerVariable(LazyVariable):
-    code = 'var_ip_picker'
+    code = 'ip'
+    name = _(u"IP选择器(简单版)")
+    type = 'general'
+    tag = 'var_ip_picker.ip_picker'
     form = '%svariables/sites/%s/var_ip_picker.js' % (settings.STATIC_URL, settings.RUN_VER)
 
     def get_value(self):
@@ -76,7 +81,10 @@ class VarIpPickerVariable(LazyVariable):
 
 
 class VarCmdbIpSelector(LazyVariable):
-    code = 'var_cmdb_ip_selector'
+    code = 'ip_selector'
+    name = _(u"IP选择器")
+    type = 'general'
+    tag = 'var_cmdb_ip_selector.ip_selector'
     form = '%svariables/sites/%s/var_cmdb_ip_selector.js' % (settings.STATIC_URL, settings.RUN_VER)
 
     def get_value(self):
@@ -84,7 +92,12 @@ class VarCmdbIpSelector(LazyVariable):
         bk_biz_id = self.pipeline_data['biz_cc_id']
         bk_supplier_account = self.pipeline_data['biz_supplier_account']
 
-        value = self.value
-        ip_result = get_ip_picker_result(username, bk_biz_id, bk_supplier_account, value)
-        ip = ','.join([host['bk_host_innerip'] for host in ip_result['data']])
+        ip_selector = self.value
+        ip_result = get_ip_picker_result(username, bk_biz_id, bk_supplier_account, ip_selector)
+
+        # get for old value compatible
+        if self.value.get('with_cloud_id', False):
+            ip = ','.join(['{}:{}'.format(host['bk_cloud_id'], host['bk_host_innerip']) for host in ip_result['data']])
+        else:
+            ip = ','.join([host['bk_host_innerip'] for host in ip_result['data']])
         return ip

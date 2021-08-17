@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -49,6 +49,7 @@ class TestConverter(TestCase):
 
         self.key = '${ip}'
         self.info = {
+            'custom_type': 'ip',
             'source_tag': u'var_ip_picker.ip_picker',
             'type': 'lazy',
             'value': {
@@ -72,7 +73,7 @@ class TestConverter(TestCase):
         self.assertEqual(variable2.name, '${ip}')
         self.assertEqual(variable2.value, self.info["value"])
         self.assertEqual(variable2._refs, {})
-        self.assertEqual(variable2.code, 'var_ip_picker')
+        self.assertEqual(variable2.code, 'ip')
 
         self.info["type"] = 'exception'
         self.assertRaises(exceptions.DataTypeErrorException, get_variable, self.key, self.info, self.context,

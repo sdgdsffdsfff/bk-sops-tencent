@@ -4,18 +4,21 @@ WORK_PATH=`pwd`
 # check_vue_i18n_utils
 # 所有的 vue 文件都需要添加 import '@/utils/i18n.js'，排除不能和项目代码耦合的独立组件 IpSelector
 # $1 参数表示当前目录
-for item in `find $WORK_PATH/pipeline/blueflow/src/ -name "*.vue" ! -path "*IpSelector*"`;do
+for item in `find $WORK_PATH/frontend/desktop/src -name "*.vue" ! -path "*IpSelector*"`;do
     echo $item
     grep "i18n.js" $item || exit 1
 done
 
-mkdir -p  ~/Temp/gcloud_open/
-mv -f $WORK_PATH/static/ ~/Temp/gcloud_open/
-rm -rf $WORK_PATH/pipeline/blueflow/static/
+mkdir -p  ~/Temp/gcloud_open/ || exit 1
+mv -f $WORK_PATH/static/ ~/Temp/gcloud_open/ || exit 1
+rm -rf $WORK_PATH/frontend/desktop/static/ || exit 1
 
 pybabel extract -F babel.cfg --copyright-holder=blueking . -o django.pot || exit 1
+# first time
+# pybabel init -i django.pot -D django -d locale -l en --no-wrap
+# pybabel init -i django.pot -D django -d locale -l zh_hans --no-wrap
 pybabel update -i django.pot -d locale -D django --no-wrap || exit 1
-django-admin makemessages -d djangojs -e vue,js -i '*node_modules*' --no-wrap || exit 1
+django-admin makemessages -d djangojs -e vue,js -i '*node_modules*' -i '*dist*' --no-wrap || exit 1
 
 # 避免手动翻译被注释
 #sed -i -e 's/#~ //g' $WORK_PATH/locale/en/LC_MESSAGES/djangojs.po

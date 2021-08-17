@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -11,11 +11,22 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 specific language governing permissions and limitations under the License.
 """
 
+import traceback
+from django.utils.module_loading import import_string
+
+from pipeline.conf import settings
 from pipeline.core.pipeline import Pipeline
 from pipeline.core.flow.activity import ServiceActivity
 from pipeline.engine import models
 from pipeline.engine import signals
 from pipeline.engine.signals import handlers
+from pipeline.engine.exceptions import InvalidPipelineEndHandleError
+
+try:
+    end_handler = import_string(settings.PIPELINE_END_HANDLER)
+except ImportError as e:
+    raise InvalidPipelineEndHandleError('pipeline end handler (%s) import error with exception: %s' % (
+        settings.PIPELINE_END_HANDLER, traceback.format_exc(e)))
 
 
 # DISPATCH_UID = __name__.replace('.', '_')
@@ -26,6 +37,14 @@ def dispatch_pipeline_ready():
         handlers.pipeline_ready_handler,
         sender=Pipeline,
         dispatch_uid='_pipeline_ready'
+    )
+
+
+def dispatch_pipeline_end():
+    signals.pipeline_end.connect(
+        end_handler,
+        sender=Pipeline,
+        dispatch_uid='_pipeline_end'
     )
 
 

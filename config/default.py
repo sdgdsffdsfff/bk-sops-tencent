@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -10,6 +10,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+
+from django.utils.translation import ugettext_lazy as _
 
 from blueapps.conf.log import get_logging_config_dict
 from blueapps.conf.default_settings import *  # noqa
@@ -31,6 +33,7 @@ from blueapps.conf.default_settings import *  # noqa
 #     'blueapps.account',
 # )
 
+APP_NAME = _(u"标准运维")
 DEFAULT_OPEN_VER = 'community'
 OPEN_VER = os.environ.get('RUN_VER', 'open')
 
@@ -55,18 +58,22 @@ INSTALLED_APPS += (
     'gcloud.apigw',
     'gcloud.commons.template',
     'gcloud.periodictask',
+    'gcloud.external_plugins',
     'pipeline',
     'pipeline.component_framework',
-    'pipeline.variables',
+    'pipeline.variable_framework',
     'pipeline.engine',
     'pipeline.log',
     'pipeline.contrib.statistics',
     'pipeline.contrib.periodic_task',
-    'django_signal_valve',
+    'pipeline.contrib.external_plugins',
+    'pipeline.django_signal_valve',
     'pipeline_plugins',
     'pipeline_plugins.components',
     'pipeline_plugins.variables',
-    'data_migration'
+    'data_migration',
+    'weixin.core',
+    'weixin',
 )
 
 # 这里是默认的中间件，大部分情况下，不需要改动
@@ -96,21 +103,28 @@ INSTALLED_APPS += (
 
 # 自定义中间件
 MIDDLEWARE += (
+    'weixin.core.middlewares.WeixinAuthenticationMiddleware',
+    'weixin.core.middlewares.WeixinLoginMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'gcloud.core.middlewares.UnauthorizedMiddleware',
     'gcloud.core.middlewares.GCloudPermissionMiddleware',
     'gcloud.core.middlewares.TimezoneMiddleware',
 )
 
+MIDDLEWARE = ('weixin.core.middlewares.WeixinProxyPatchMiddleware',) + MIDDLEWARE
+
 # 所有环境的日志级别可以在这里配置
-# LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'INFO'
+
+# load logging settings
+LOGGING = get_logging_config_dict(locals())
 
 # 静态资源文件(js,css等）在APP上线更新后, 由于浏览器有缓存,
 # 可能会造成没更新的情况. 所以在引用静态资源的地方，都把这个加上
 # Django模板中：<script src="/a.js?v="></script>
 # mako模板中：<script src="/a.js?v=${ STATIC_VERSION }"></script>
 # 如果静态资源修改了以后，上线前改这个版本号即可
-STATIC_VERSION = '3.04'
+STATIC_VERSION = '3.3.30'
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
@@ -129,8 +143,23 @@ CELERYD_CONCURRENCY = os.getenv('BK_CELERYD_CONCURRENCY', 2)
 CELERY_IMPORTS = (
 )
 
-# load logging settings
-LOGGING = get_logging_config_dict(locals())
+# celery settings
+if IS_USE_CELERY:
+    INSTALLED_APPS = locals().get('INSTALLED_APPS', [])
+    import djcelery
+
+    INSTALLED_APPS += (
+        'djcelery',
+    )
+    djcelery.setup_loader()
+    CELERY_ENABLE_UTC = True
+    CELERYBEAT_SCHEDULER = "djcelery.schedulers.DatabaseScheduler"
+
+LOGGING['loggers']['pipeline'] = {
+    'handlers': ['root'],
+    'level': LOG_LEVEL,
+    'propagate': True,
+}
 
 # 初始化管理员列表，列表中的人员将拥有预发布环境和正式环境的管理员权限
 # 注意：请在首次提测和上线前修改，之后的修改将不会生效
@@ -163,19 +192,6 @@ AUTHENTICATION_BACKENDS += (
     'gcloud.core.backends.GCloudPermissionBackend',
 )
 
-ver_settings = importlib.import_module('config.sites.%s.ver_settings' % OPEN_VER)
-
-for _setting in dir(ver_settings):
-    if _setting.upper() == _setting:
-        locals()[_setting] = getattr(ver_settings, _setting)
-
-# 本地开发环境日志级别
-LOG_LEVEL_DEVELOP = 'INFO'
-# 测试环境日志级别
-LOG_LEVEL_TEST = 'INFO'
-# 正式环境日志级别
-LOG_LEVEL_PRODUCT = 'INFO'  # 'ERROR'
-
 HAYSTACK_CONNECTIONS = {
     'default': {
         'ENGINE': 'haystack.backends.simple_backend.SimpleEngine',
@@ -184,6 +200,31 @@ HAYSTACK_CONNECTIONS = {
 
 # 通知公告域名
 PUSH_URL = os.environ.get('BK_PUSH_URL', '')
+
+# remove disabled apps
+if locals().get('DISABLED_APPS'):
+    INSTALLED_APPS = locals().get('INSTALLED_APPS', [])
+    DISABLED_APPS = locals().get('DISABLED_APPS', [])
+
+    INSTALLED_APPS = [_app for _app in INSTALLED_APPS
+                      if _app not in DISABLED_APPS]
+
+    _keys = ('AUTHENTICATION_BACKENDS',
+             'DATABASE_ROUTERS',
+             'FILE_UPLOAD_HANDLERS',
+             'MIDDLEWARE',
+             'PASSWORD_HASHERS',
+             'TEMPLATE_LOADERS',
+             'STATICFILES_FINDERS',
+             'TEMPLATE_CONTEXT_PROCESSORS')
+
+    import itertools
+
+    for _app, _key in itertools.product(DISABLED_APPS, _keys):
+        if locals().get(_key) is None:
+            continue
+        locals()[_key] = tuple([_item for _item in locals()[_key]
+                                if not _item.startswith(_app + '.')])
 
 # db cache
 # create cache table by execute:
@@ -202,10 +243,6 @@ CACHES = {
     },
 }
 
-# 创建默认模版的系统用户信息
-SYSTEM_USERNAME = 'system_user'
-SYSTEM_USER_CH = u"系统用户"
-
 # 针对CC接口数据相关的缓存时间(单位s)
 DEFAULT_CACHE_TIME_FOR_CC = 5
 
@@ -214,9 +251,6 @@ DEFAULT_CACHE_TIME_FOR_USER_UPDATE = 5
 
 # 针对平台用户接口缓存的时间
 DEFAULT_CACHE_TIME_FOR_AUTH = 5
-
-# CC系统名称
-ESB_COMPONENT_CC = 'cc'
 
 # 蓝鲸PASS平台URL
 BK_PAAS_HOST = os.getenv('BK_PAAS_HOST', BK_URL)
@@ -227,9 +261,6 @@ BK_PAAS_INNER_HOST = os.getenv('BK_PAAS_INNER_HOST', BK_PAAS_HOST)
 # cc、job域名
 BK_CC_HOST = os.environ.get('BK_CC_HOST')
 BK_JOB_HOST = os.environ.get('BK_JOB_HOST')
-
-PIPELINE_TEMPLATE_CONTEXT = 'gcloud.tasktmpl3.utils.get_template_context'
-PIPELINE_INSTANCE_CONTEXT = 'gcloud.taskflow3.utils.get_instance_context'
 
 # ESB 默认版本配置 '' or 'v2'
 DEFAULT_BK_API_VER = 'v2'
@@ -248,6 +279,8 @@ STATIC_VER = {
 }
 
 # pipeline settings
+PIPELINE_TEMPLATE_CONTEXT = 'gcloud.tasktmpl3.utils.get_template_context'
+PIPELINE_INSTANCE_CONTEXT = 'gcloud.taskflow3.utils.get_instance_context'
 
 COMPONENT_PATH = ['components.collections.sites.%s' % RUN_VER]
 VARIABLE_PATH = ['variables.collections.sites.%s' % RUN_VER]
@@ -256,4 +289,20 @@ PIPELINE_PARSER_CLASS = 'pipeline_web.parser.WebPipelineAdapter'
 
 PIPELINE_RERUN_MAX_TIMES = 50
 
+EXTERNAL_PLUGINS_SOURCE_PROXY = os.getenv('BKAPP_EXTERNAL_PLUGINS_SOURCE_PROXY', None)
+# 是否只允许加载远程 https 仓库的插件
+EXTERNAL_PLUGINS_SOURCE_SECURE_RESTRICT = os.getenv('BKAPP_EXTERNAL_PLUGINS_SOURCE_SECURE_LOOSE', '1') == '0'
+
+PIPELINE_DATA_BACKEND = 'pipeline.engine.core.data.redis_backend.RedisDataBackend'
+
+ENABLE_EXAMPLE_COMPONENTS = False
+
+UUID_DIGIT_STARTS_SENSITIVE = True
+
 from pipeline.celery.settings import *  # noqa
+
+# VER settings
+ver_settings = importlib.import_module('config.sites.%s.ver_settings' % OPEN_VER)
+for _setting in dir(ver_settings):
+    if _setting.upper() == _setting:
+        locals()[_setting] = getattr(ver_settings, _setting)

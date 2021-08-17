@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -18,6 +18,8 @@ from gcloud.apigw import views
 urlpatterns = [
     url(r'^get_template_list/(?P<bk_biz_id>\d+)/$', views.get_template_list),
     url(r'^get_template_info/(?P<template_id>\d+)/(?P<bk_biz_id>\d+)/$', views.get_template_info),
+    url(r'^get_common_template_list/$', views.get_common_template_list),
+    url(r'^get_common_template_info/(?P<template_id>\d+)/$', views.get_common_template_info),
     url(r'^create_task/(?P<template_id>\d+)/(?P<bk_biz_id>\d+)/$', views.create_task),
     url(r'^start_task/(?P<task_id>\d+)/(?P<bk_biz_id>\d+)/$', views.start_task),
     url(r'^operate_task/(?P<task_id>\d+)/(?P<bk_biz_id>\d+)/$', views.operate_task),
@@ -33,4 +35,5 @@ urlpatterns = [
     url(r'^get_task_detail/(?P<task_id>\d+)/(?P<bk_biz_id>\d+)/$', views.get_task_detail),
     url(r'^get_task_node_detail/(?P<task_id>\d+)/(?P<bk_biz_id>\d+)/$', views.get_task_node_detail),
     url(r'^node_callback/(?P<task_id>\d+)/(?P<bk_biz_id>\d+)/$', views.node_callback),
+    url(r'^import_common_template/$', views.import_common_template),
 ]

@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -145,8 +145,14 @@ def revoke_pipeline(pipeline_id):
         return action_result
 
     process = PipelineModel.objects.get(id=pipeline_id).process
-    process.revoke_subprocess()
-    process.destroy_all()
+
+    if not process:
+        return ActionResult(result=False, message='relate process is none, this pipeline may be revoked.')
+
+    with transaction.atomic():
+        PipelineProcess.objects.select_for_update().get(id=process.id)
+        process.revoke_subprocess()
+        process.destroy_all()
 
     return action_result
 
@@ -422,22 +428,6 @@ def get_activity_histories(node_id):
     :return:
     """
     return History.objects.get_histories(node_id)
-
-
-def get_single_state(node_id):
-    """
-    get state for single node
-    :param node_id:
-    :return:
-    """
-    s = Status.objects.get(id=node_id)
-    return {
-        'state': s.state,
-        'started_time': s.started_time,
-        'finished_time': s.archived_time,
-        'retry': s.retry,
-        'skip': s.skip
-    }
 
 
 @_frozen_check

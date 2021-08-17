@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -303,11 +303,11 @@ class PeriodicTask(models.Model):
     snapshot = models.ForeignKey(
         Snapshot,
         related_name='periodic_tasks',
-        verbose_name=_(u'用于创建流程实例的结构数据')
+        verbose_name=_(u"用于创建流程实例的结构数据")
     )
     total_run_count = models.PositiveIntegerField(_(u"执行次数"), default=0)
     last_run_at = models.DateTimeField(_(u"上次运行时间"), null=True)
-    creator = models.CharField(_(u'创建者'), max_length=32, default='')
+    creator = models.CharField(_(u"创建者"), max_length=32, default='')
     extra_info = CompressJSONField(verbose_name=_(u"额外信息"), null=True)
 
     objects = PeriodicTaskManager()

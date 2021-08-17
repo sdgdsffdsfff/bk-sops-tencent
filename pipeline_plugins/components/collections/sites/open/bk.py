@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -16,15 +16,14 @@ import logging
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
 
-from pipeline.conf import settings
 from pipeline.core.flow.activity import Service
 from pipeline.component_framework.component import Component
-
-from gcloud.conf import settings as gcloud_settings
+from gcloud.conf import settings
 from gcloud.core.roles import CC_V2_ROLE_MAP
 
 __group_name__ = _(u"蓝鲸服务(BK)")
 logger = logging.getLogger(__name__)
+get_client_by_user = settings.ESB_GET_CLIENT_BY_USER
 
 
 def get_notify_receivers(client, biz_cc_id, supplier_account, receiver_group, more_receiver):
@@ -71,7 +70,7 @@ class NotifyService(Service):
         executor = parent_data.get_one_of_inputs('executor')
         biz_cc_id = parent_data.get_one_of_inputs('biz_cc_id')
         supplier_account = parent_data.get_one_of_inputs('biz_supplier_account')
-        client = gcloud_settings.ESB_GET_CLIENT_BY_USER(executor)
+        client = get_client_by_user(executor)
         if parent_data.get_one_of_inputs('language'):
             translation.activate(parent_data.get_one_of_inputs('language'))
 
@@ -124,7 +123,8 @@ class NotifyService(Service):
         return {
             'receiver__username': receivers,
             'title': title,
-            'content': content
+            # 保留通知内容中的换行和空格
+            'content': u"<pre>%s</pre>" % content
         }
 
     def _weixin_args(self, receivers, title, content):
@@ -159,6 +159,7 @@ class NotifyComponent(Component):
     name = _(u'发送通知')
     code = 'bk_notify'
     bound_service = NotifyService
-    form = '%scomponents/atoms/sites/%s/bk/notify.js' % (settings.STATIC_URL, settings.RUN_VER)
+    form = '%scomponents/atoms/bk/notify.js' % settings.STATIC_URL
     desc = _(u"API 网关定义了这些消息通知组件的接口协议，但是，并没有完全实现组件内容，用户可根据接口协议，重写此部分组件。"
-             u"API网关为降低实现消息通知组件的难度，提供了在线更新组件配置，不需编写组件代码的方案。详情请查阅PaaS->API网关->使用指南。")
+             u"API网关为降低实现消息通知组件的难度，提供了在线更新组件配置，不需编写组件代码的方案。详情请查阅PaaS->API网"
+             u"关->使用指南。")

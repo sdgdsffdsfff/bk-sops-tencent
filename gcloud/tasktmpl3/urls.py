@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -26,8 +26,6 @@ urlpatterns = [
     url(r'^api/collect/(?P<biz_cc_id>\d+)/$', api.collect),
     url(r'^api/get_perms/(?P<biz_cc_id>\d+)/$', api.get_perms),
     url(r'^api/save_perms/(?P<biz_cc_id>\d+)/$', api.save_perms),
-    url(r'^get_business_basic_info/(?P<biz_cc_id>\d+)/$', api.get_business_basic_info),
-
     url(r'^api/import_v1/(?P<biz_cc_id>\d+)/$', import_data.import_v1),
     url(r'^api/import_v2/$', import_v2_data.import_v2),
     url(r'^api/export/(?P<biz_cc_id>\d+)/$', api.export_templates),

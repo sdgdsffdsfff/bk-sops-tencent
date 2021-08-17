@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -29,7 +29,22 @@ class Component(object):
         outputs = map(lambda oi: oi._asdict(), outputs)
         return outputs
 
+    @classmethod
+    def inputs_format(cls):
+        inputs = cls.bound_service().inputs()
+        inputs = map(lambda ii: ii._asdict(), inputs)
+        return inputs
+
+    @classmethod
+    def form_is_embedded(cls):
+        return getattr(cls, 'embedded_form', False)
+
     def clean_execute_data(self, context):
+        """
+        @summary: hook for subclass of Component to clean execute data with context
+        @param context:
+        @return:
+        """
         return self.data_dict
 
     def data_for_execution(self, context, pipeline_data):

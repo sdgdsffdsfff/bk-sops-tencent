@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -11,30 +11,30 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 specific language governing permissions and limitations under the License.
 """
 
-import re
-import os
 import logging
+import os
+import re
 
-from django.http import JsonResponse
-from django.utils.translation import ugettext_lazy as _
-from django.utils import timezone
 from django.conf.urls import url
-
-from pipeline_plugins.components.utils import (cc_get_inner_ip_by_module_id,
-                                               supplier_account_inject,
-                                               handle_api_error,
-                                               supplier_id_inject)
+from django.http import JsonResponse
+from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
 
 from pipeline_plugins.cmdb_ip_picker.query import (
     cmdb_search_host,
     cmdb_search_topo_tree,
     cmdb_get_mainline_object_topo
 )
-
+from pipeline_plugins.components.utils import (
+    cc_get_inner_ip_by_module_id,
+    supplier_account_inject,
+    handle_api_error,
+    supplier_id_inject
+)
 from gcloud.conf import settings
-from gcloud.conf.default_settings import ESB_GET_CLIENT_BY_REQUEST as get_client_by_request
 
 logger = logging.getLogger('root')
+get_client_by_user = settings.ESB_GET_CLIENT_BY_USER
 
 JOB_VAR_TYPE_STR = 1
 JOB_VAR_TYPE_IP = 2
@@ -51,7 +51,7 @@ def cc_search_object_attribute(request, obj_id, biz_cc_id, supplier_account):
     @param biz_cc_id:
     @return:
     """
-    client = get_client_by_request(request)
+    client = get_client_by_user(request.user.username)
     kwargs = {
         'bk_obj_id': obj_id,
         'bk_supplier_account': supplier_account
@@ -80,7 +80,7 @@ def cc_search_object_attribute(request, obj_id, biz_cc_id, supplier_account):
 
 @supplier_account_inject
 def cc_search_create_object_attribute(request, obj_id, biz_cc_id, supplier_account):
-    client = get_client_by_request(request)
+    client = get_client_by_user(request.user.username)
     kwargs = {
         'bk_obj_id': obj_id,
         'bk_supplier_account': supplier_account
@@ -172,7 +172,7 @@ def cc_search_topo(request, obj_id, category, biz_cc_id, supplier_account):
     @param biz_cc_id:
     @return:
     """
-    client = get_client_by_request(request)
+    client = get_client_by_user(request.user.username)
     kwargs = {
         'bk_biz_id': biz_cc_id,
         'bk_supplier_account': supplier_account
@@ -223,16 +223,20 @@ def job_get_script_list(request, biz_cc_id):
     :return:
     """
     # 查询脚本列表
-    client = get_client_by_request(request)
-    script_type = request.GET.get('type')
+    client = get_client_by_user(request.user.username)
+    source_type = request.GET.get('type')
+    script_type = request.GET.get('script_type')
+
     kwargs = {
         'bk_biz_id': biz_cc_id,
-        'is_public': True if script_type == 'public' else False
+        'is_public': True if source_type == 'public' else False,
+        'script_type': script_type or 0,
     }
+
     script_result = client.job.get_script_list(kwargs)
 
     if not script_result['result']:
-        message = handle_api_error('cc', 'job.get_script_list', kwargs, script_result['message'])
+        message = handle_api_error('job', 'job.get_script_list', kwargs, script_result['message'])
         logger.error(message)
         result = {
             'result': False,
@@ -252,6 +256,33 @@ def job_get_script_list(request, biz_cc_id):
         })
 
     return JsonResponse({'result': True, 'data': version_data})
+
+
+def job_get_own_db_account_list(request, biz_cc_id):
+    """
+    查询用户有权限的DB帐号列表
+    :param biz_cc_id:
+    :param request:
+    :return:
+    """
+    client = get_client_by_user(request.user.username)
+    kwargs = {
+        'bk_biz_id': biz_cc_id
+    }
+    job_result = client.job.get_own_db_account_list(kwargs)
+
+    if not job_result['result']:
+        message = handle_api_error('job', 'get_own_db_account_list', kwargs, job_result['message'])
+        logger.error(message)
+        result = {
+            'result': False,
+            'message': message
+        }
+        return JsonResponse(result)
+
+    data = [{'text': item['db_alias'], 'value': item['db_account_id']} for item in job_result['data']]
+
+    return JsonResponse({'result': True, 'data': data})
 
 
 def file_upload(request, biz_cc_id):
@@ -287,7 +318,7 @@ def file_upload(request, biz_cc_id):
             })
 
         now_str = timezone.datetime.now().strftime('%Y%m%d%H%M%S')
-        bk_path = os.path.join(settings.PROJECT_ROOT,
+        bk_path = os.path.join(settings.BASE_DIR,
                                'USERRES',
                                'bkupload',
                                str(biz_cc_id),
@@ -317,7 +348,7 @@ def file_upload(request, biz_cc_id):
 
 
 def job_get_job_tasks_by_biz(request, biz_cc_id):
-    client = get_client_by_request(request)
+    client = get_client_by_user(request.user.username)
     job_result = client.job.get_job_list({'bk_biz_id': biz_cc_id})
     if not job_result['result']:
         message = _(u"查询作业平台(JOB)的作业模板[app_id=%s]接口job.get_task返回失败: %s") % (
@@ -339,7 +370,7 @@ def job_get_job_tasks_by_biz(request, biz_cc_id):
 
 
 def job_get_job_task_detail(request, biz_cc_id, task_id):
-    client = get_client_by_request(request)
+    client = get_client_by_user(request.user.username)
     job_result = client.job.get_job_detail({'bk_biz_id': biz_cc_id,
                                             'bk_job_id': task_id})
     if not job_result['result']:
@@ -363,11 +394,13 @@ def job_get_job_task_detail(request, biz_cc_id, task_id):
     steps = []
     for var in task_detail.get('global_vars', []):
         # 1-字符串, 2-IP, 3-索引数组, 4-关联数组
-        if var['type'] in [JOB_VAR_TYPE_STR, JOB_VAR_TYPE_IP, JOB_VAR_TYPE_ARRAY]:
+        if var['type'] in [JOB_VAR_TYPE_STR, JOB_VAR_TYPE_INDEX_ARRAY, JOB_VAR_TYPE_ARRAY]:
             value = var.get('value', '')
         else:
-            value = ['{plat_id}:{ip}'.format(plat_id=ip_item['bk_cloud_id'], ip=ip_item['ip'])
-                     for ip_item in var.get('ip_list', [])]
+            value = ','.join(
+                ['{plat_id}:{ip}'.format(plat_id=ip_item['bk_cloud_id'], ip=ip_item['ip'])
+                 for ip_item in var.get('ip_list', [])]
+            )
         global_var.append({
             'id': var['id'],
             # 全局变量类型：1:云参, 2:上下文参数，3:IP
@@ -413,6 +446,7 @@ urlpatterns = [
     url(r'^cc_search_topo/(?P<obj_id>\w+)/(?P<category>\w+)/(?P<biz_cc_id>\d+)/$', cc_search_topo),
     url(r'^cc_get_host_by_module_id/(?P<biz_cc_id>\d+)/$', cc_get_host_by_module_id),
     url(r'^job_get_script_list/(?P<biz_cc_id>\d+)/$', job_get_script_list),
+    url(r'^job_get_own_db_account_list/(?P<biz_cc_id>\d+)/$', job_get_own_db_account_list),
     url(r'^file_upload/(?P<biz_cc_id>\d+)/$', file_upload),
     url(r'^job_get_job_tasks_by_biz/(?P<biz_cc_id>\d+)/$', job_get_job_tasks_by_biz),
     url(r'^job_get_job_detail_by_biz/(?P<biz_cc_id>\d+)/(?P<task_id>\d+)/$', job_get_job_task_detail),

@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -23,7 +23,7 @@ from pipeline.engine import signals
 from pipeline.engine.core import handlers
 from pipeline.engine.core.handlers import service_activity as service_act_h
 
-from django_signal_valve import valve
+from pipeline.django_signal_valve import valve
 
 from pipeline.tests.mock import *  # noqa
 from pipeline.tests.mock_settings import *  # noqa
@@ -105,7 +105,8 @@ class ServiceActivityHandlerTestCase(TestCase):
                                                    'activity_failed',
                                                    sender=process.root_pipeline,
                                                    pipeline_id=process.root_pipeline.id,
-                                                   pipeline_activity_id=service_act.id)
+                                                   pipeline_activity_id=service_act.id,
+                                                   subprocess_id_stack=process.subprocess_stack)
 
                 self.assertIsNone(hdl_result.next_node)
                 self.assertFalse(hdl_result.should_return)
@@ -274,7 +275,8 @@ class ServiceActivityHandlerTestCase(TestCase):
                                                    'activity_failed',
                                                    sender=process.root_pipeline,
                                                    pipeline_id=process.root_pipeline.id,
-                                                   pipeline_activity_id=service_act.id)
+                                                   pipeline_activity_id=service_act.id,
+                                                   subprocess_id_stack=process.subprocess_stack)
 
                 self.assertIsNone(hdl_result.next_node)
                 self.assertFalse(hdl_result.should_return)

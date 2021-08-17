@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -27,15 +27,30 @@ class Element(object):
         self.outgoing = outgoing or []
 
     def extend(self, element):
+        """
+        build a connection from self to element and return element
+        :param element: target
+        :rtype: Element
+        """
         self.outgoing.append(element)
         return element
 
     def connect(self, *args):
+        """
+        build connections from self to elements in args and return self
+        :param args: target elements
+        :rtype: Element
+        """
         for e in args:
             self.outgoing.append(e)
         return self
 
     def converge(self, element):
+        """
+        converge all connection those diverge from self to element and return element
+        :param element: target
+        :rtype: Element
+        """
         for e in self.outgoing:
             e.tail().connect(element)
         return element
@@ -44,6 +59,10 @@ class Element(object):
         return element
 
     def tail(self):
+        """
+        get tail element for self
+        :rtype: Element
+        """
         is_tail = len(self.outgoing) == 0
         e = self
 
@@ -58,3 +77,8 @@ class Element(object):
 
     def __eq__(self, other):
         return self.id == other.id
+
+    def __repr__(self):
+        return u"<{cls} {name}:{id}>".format(cls=type(self).__name__,
+                                             name=self.name,
+                                             id=self.id)

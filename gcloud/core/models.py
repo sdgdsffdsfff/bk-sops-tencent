@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -10,6 +10,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+
+from os import environ
 
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.models import Group
@@ -33,7 +35,6 @@ class Business(models.Model):
     # 开发商ID bk_supplier_id
     cc_company = models.CharField(max_length=100)
     time_zone = models.CharField(max_length=100, blank=True)
-    # LifeCycle：'1'：测试中， '2'：已上线， '3'： 停运， 其他如'0'、''是非法值
     life_cycle = models.CharField(_(u"生命周期"), max_length=100, blank=True)
     executor = models.CharField(_(u"任务执行者"), max_length=100, blank=True)
     # null 表未归档，disabled 表示已归档
@@ -47,6 +48,11 @@ class Business(models.Model):
 
     objects = BusinessManager()
 
+    # LifeCycle：'1'：测试中， '2'：已上线， '3'： 停运， 其他如'0'、''是历史遗留非法值，暂时认为是已上线状态
+    LIFE_CYCLE_TESTING = '1'  # 测试中
+    LIFE_CYCLE_ONLINE = '2'  # 已上线
+    LIFE_CYCLE_CLOSE_DOWN = '3'  # 停运
+
     class Meta:
         verbose_name = _(u"业务 Business")
         verbose_name_plural = _(u"业务 Business")
@@ -57,6 +63,9 @@ class Business(models.Model):
 
     def __unicode__(self):
         return u"%s_%s" % (self.cc_id, self.cc_name)
+
+    def available(self):
+        return self.status != 'disabled'
 
 
 class UserBusiness(models.Model):
@@ -95,7 +104,7 @@ class EnvVarManager(models.Manager):
         objs = self.filter(key=key)
         if objs.exists():
             return objs[0].value
-        return None
+        return environ.get(key, None)
 
 
 class EnvironmentVariables(models.Model):

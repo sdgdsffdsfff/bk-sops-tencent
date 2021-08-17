@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -11,12 +11,11 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 specific language governing permissions and limitations under the License.
 """
 import copy
-import json
 import logging
 import traceback
 
+import ujson as json
 from cryptography.fernet import Fernet
-from django.conf import settings
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -26,15 +25,31 @@ from pipeline.engine import api as pipeline_api
 from pipeline.engine import exceptions, states
 from pipeline.engine.models import PipelineModel
 
-from gcloud.taskflow3.constants import TASK_CREATE_METHOD
-from gcloud.taskflow3.models import TaskFlowInstance
+from gcloud.conf import settings
 from gcloud.commons.template.models import CommonTemplate
 from gcloud.commons.template.constants import PermNm
-from gcloud.taskflow3.decorators import check_user_perm_of_task
 from gcloud.tasktmpl3.models import TaskTemplate
-from gcloud.conf.default_settings import ESB_GET_CLIENT_BY_USER as get_client_by_user
+from gcloud.taskflow3.constants import TASK_CREATE_METHOD
+from gcloud.taskflow3.models import TaskFlowInstance
+from gcloud.taskflow3.decorators import check_user_perm_of_task
+from gcloud.taskflow3.context import TaskContext
 
 logger = logging.getLogger("root")
+get_client_by_user = settings.ESB_GET_CLIENT_BY_USER
+
+
+@require_GET
+def context(request):
+    """
+    @summary: 返回流程中可以引用的任务全局变量
+    @param request:
+    @return:
+    """
+    ctx = {
+        'result': True,
+        'data': TaskContext.flat_details()
+    }
+    return JsonResponse(ctx)
 
 
 @require_GET
@@ -310,7 +325,18 @@ def node_callback(request, token):
             'message': 'invalid request body'
         }, status=400)
 
-    return JsonResponse(TaskFlowInstance.objects.callback(node_id, callback_data))
+    # 由于回调方不一定会进行多次回调，这里为了在业务层防止出现不可抗力（网络，DB 问题等）导致失败
+    # 增加失败重试机制
+    for i in range(3):
+        callback_result = TaskFlowInstance.objects.callback(node_id, callback_data)
+        logger.info('result of callback call({}): {}'.format(
+            token,
+            callback_result
+        ))
+        if callback_result['result']:
+            break
+
+    return JsonResponse(callback_result)
 
 
 def get_taskflow_root_context(request, taskflow_id):

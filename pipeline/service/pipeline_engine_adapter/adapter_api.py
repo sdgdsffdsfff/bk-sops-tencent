@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -12,6 +12,7 @@ specific language governing permissions and limitations under the License.
 """
 
 from pipeline.engine import api
+from pipeline.log.models import LogEntry
 
 STATE_MAP = {
     'CREATED': 'RUNNING',
@@ -25,8 +26,8 @@ STATE_MAP = {
 }
 
 
-def run_pipeline(pipeline_instance, instance_id=None):
-    return api.start_pipeline(pipeline_instance)
+def run_pipeline(pipeline_instance, instance_id=None, check_workers=True):
+    return api.start_pipeline(pipeline_instance, check_workers=check_workers)
 
 
 def pause_pipeline(pipeline_id):
@@ -103,10 +104,6 @@ def get_state(node_id):
     return res
 
 
-def get_single_state(node_id):
-    return api.get_single_state(node_id)
-
-
 def _get_node_state(tree):
     status = []
 
@@ -129,10 +126,11 @@ def _get_parent_state_from_children_state(parent_state, children_state_list):
     @param children_state_list:
     @return:
     """
+    children_state_set = set(children_state_list)
     if parent_state == 'BLOCKED':
-        if 'RUNNING' in children_state_list:
+        if 'RUNNING' in children_state_set:
             parent_state = 'RUNNING'
-        if 'FAILED' in children_state_list:
+        if 'FAILED' in children_state_set:
             parent_state = 'FAILED'
     return parent_state
 
@@ -163,3 +161,7 @@ def _map(tree):
         'retry': tree['retry'],
         'skip': tree['skip']
     }
+
+
+def get_plain_log_for_node(node_id, history_id):
+    return LogEntry.objects.plain_log_for_node(node_id=node_id, history_id=history_id)

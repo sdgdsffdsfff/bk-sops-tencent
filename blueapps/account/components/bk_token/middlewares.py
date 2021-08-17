@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -29,7 +29,6 @@ logger = logging.getLogger('component')
 
 
 class LoginRequiredMiddleware(MiddlewareMixin):
-
     def process_view(self, request, view, args, kwargs):
         """
         Login paas by two ways
@@ -57,9 +56,18 @@ class LoginRequiredMiddleware(MiddlewareMixin):
         form = AuthenticationForm(request.COOKIES)
         if not form.is_valid():
             return None
+
         bk_token = form.cleaned_data['bk_token']
-        user = auth.authenticate(request=request, bk_token=bk_token)
-        # Succeed to login, recall self to exit process
-        if user and user.username != request.user.username:
+        # 确认 cookie 中的 bk_token 和 session 中的是否一致
+        # 如果登出删除 cookie 后 session 存在 is_match 为False
+        is_match = (bk_token == request.session.get('bk_token'))
+        if is_match and request.user.is_authenticated:
+            return request.user
+
+        user = auth.authenticate(request=request,
+                                 bk_token=bk_token)
+        if user:
+            # 登录成功，记录 user 信息
             auth.login(request, user)
+            request.session['bk_token'] = bk_token
         return user

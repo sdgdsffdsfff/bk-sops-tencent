@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -16,7 +16,7 @@ import os
 from blueapps.conf.default_settings import BASE_DIR, APP_CODE
 
 
-def get_paas_v2_logging_config_dict(is_local, bk_log_dir, log_level='INFO'):
+def get_paas_v2_logging_config_dict(is_local, bk_log_dir, log_level):
     """
     日志V2对外版设置
     """
@@ -88,14 +88,19 @@ def get_paas_v2_logging_config_dict(is_local, bk_log_dir, log_level='INFO'):
                 'level': 'INFO',
                 'propagate': True,
             },
-            'django.db.backends': {
-                'handlers': ['wb_mysql'],
-                'level': 'DEBUG',
+            'django.server': {
+                'handlers': ['console'],
+                'level': log_level,
                 'propagate': True,
             },
             'django.request': {
                 'handlers': ['console'],
                 'level': 'ERROR',
+                'propagate': True,
+            },
+            'django.db.backends': {
+                'handlers': ['wb_mysql'],
+                'level': log_level,
                 'propagate': True,
             },
             'root': {
@@ -107,7 +112,7 @@ def get_paas_v2_logging_config_dict(is_local, bk_log_dir, log_level='INFO'):
             # V3新版使用的日志
             'celery': {
                 'handlers': ['root'],
-                'level': 'INFO',
+                'level': log_level,
                 'propagate': True,
             },
             'blueapps': {

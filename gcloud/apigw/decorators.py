@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -11,10 +11,10 @@ an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express o
 specific language governing permissions and limitations under the License.
 """
 
-import json
 import sys
 from functools import wraps
 
+import ujson as json
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.utils.decorators import available_attrs
@@ -27,7 +27,7 @@ from gcloud.taskflow3.models import TaskFlowInstance
 from gcloud.tasktmpl3.models import TaskTemplate
 from gcloud.conf import settings
 
-if not sys.argv[1:2] == ['test'] and settings.RUN_VER != 'open':
+if not sys.argv[1:2] == ['test'] and settings.USE_BK_OAUTH:
     try:
         from bkoauth.decorators import apigw_required
     except ImportError:
@@ -36,6 +36,7 @@ else:
     apigw_required = None
 
 WHITE_APPS = {'bk_fta', 'bk_bcs'}
+WHETHER_PREPARE_BIZ = getattr(settings, 'WHETHER_PREPARE_BIZ_IN_API_CALL', True)
 
 
 def check_white_apps(request):
@@ -172,7 +173,7 @@ def api_check_user_perm_of_business(permit):
         @wraps(view_func, assigned=available_attrs(view_func))
         def _wrapped_view(request, *args, **kwargs):
             # 应用白名单，免用户校验
-            if is_request_from_trust_apps_and_inject_user(request, prepare_biz=True):
+            if is_request_from_trust_apps_and_inject_user(request, prepare_biz=WHETHER_PREPARE_BIZ):
                 if not business_exist(kwargs):
                     return JsonResponse({
                         'result': False,
@@ -180,7 +181,7 @@ def api_check_user_perm_of_business(permit):
                     })
                 return view_func(request, *args, **kwargs)
 
-            info = get_user_and_biz_info_and_inject_user(request, kwargs, prepare_biz=True)
+            info = get_user_and_biz_info_and_inject_user(request, kwargs, prepare_biz=WHETHER_PREPARE_BIZ)
             if not info['result']:
                 return JsonResponse(info)
             user = info['data']['user']

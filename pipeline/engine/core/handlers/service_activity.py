@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -23,7 +23,7 @@ from pipeline.engine.models import (
     Data,
     ScheduleService,
 )
-from django_signal_valve import valve
+from pipeline.django_signal_valve import valve
 
 from .base import FlowElementHandler
 
@@ -103,7 +103,8 @@ class ServiceActivityHandler(FlowElementHandler):
             # send activity error signal
             valve.send(signals, 'activity_failed', sender=root_pipeline,
                        pipeline_id=root_pipeline.id,
-                       pipeline_activity_id=element.id)
+                       pipeline_activity_id=element.id,
+                       subprocess_id_stack=process.subprocess_stack)
 
             return self.HandleResult(next_node=None, should_return=False, should_sleep=True)
         else:

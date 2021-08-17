@@ -2,7 +2,7 @@
 """
 Tencent is pleased to support the open source community by making 蓝鲸智云PaaS平台社区版 (BlueKing PaaS Community
 Edition) available.
-Copyright (C) 2017-2019 THL A29 Limited, a Tencent company. All rights reserved.
+Copyright (C) 2017-2020 THL A29 Limited, a Tencent company. All rights reserved.
 Licensed under the MIT License (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 http://opensource.org/licenses/MIT
@@ -14,7 +14,7 @@ specific language governing permissions and limitations under the License.
 from __future__ import absolute_import
 
 import mock  # noqa
-from mock import MagicMock
+from mock import MagicMock, patch  # noqa
 
 from django.utils.timezone import now
 
@@ -110,3 +110,9 @@ class MockQuerySet(object):
                  filter_result=None):
         self.get = MagicMock(return_value=get_result) if get_result else MagicMock(side_effect=get_raise)
         self.filter = MagicMock(return_value=filter_result)
+
+
+class MockSyncPackageSource(object):
+    def __init__(self, id, type):
+        self.id = id
+        self.type = MagicMock(return_value=type)
